@@ -42,9 +42,9 @@ with tab1:
         with col1:
             consultant = st.selectbox(
                 "Consultant Name *",
-                ["Golden", "Moreen", "John", "Sarah", "Mike", "David", "Lisa"]
+                ["Aobakwe Peter", "Daychannel Jasson", "Daychannel Jaysson", "Diya Ramesar", "Golden Raphulu", "Karabo Ratau", "Moreen Nkosi"]
             )
-            team_leader = st.text_input("Team Leader *", value="Sipho")
+            team_leader = st.text_input("Team Leader *", value="Sipho Ramashiya")
             
         with col2:
             client_id = st.text_input("Client ID *", placeholder="CLIENT-001")
