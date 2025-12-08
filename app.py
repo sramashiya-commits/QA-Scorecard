@@ -64,7 +64,7 @@ def calculate_score(answers):
 st.title("📊 QA Scorecard System")
 
 # Navigation
-tab1, tab2 = st.tabs(["➕ New Audit", "📋 View Audits"])
+st.markdown("<h1 style='text-align: center;'>📊 QA Scorecard System</h1>", unsafe_allow_html=True)
 
 with tab1:
     st.header("New QA Audit")
