@@ -4,11 +4,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # Page config
 st.set_page_config(
-    page_title="Digital Support(QA Scorecard System)",
+    page_title="QA Scorecard System",
     page_icon="📊",
     layout="wide"
 )
@@ -22,16 +21,287 @@ def init_connection():
 
 supabase = init_connection()
 
-# Custom scoring function
-def calculate_score(answers):
+# ==================== EXACT DATA STRUCTURE AS PROVIDED ====================
+
+# Team Leader to Department Mapping
+TEAM_DEPARTMENT_MAP = {
+    "Sipho Ramashiya": "Digital Support",
+    "Anita Maharaj": "ARQ",
+    "Palesa Maponya": "ARQ",
+    "Neo Thobejane": "ARQ",
+    "Garth Masekele": "ARQ",
+    "Sue Darrol": "DVQ (KYC)",
+    "Rethabile Nkadimeng": "Assessment",
+    "Theo Sambinda": "Confirmations",
+    "Pacience Mashigo": "Dialler",
+    "Bradlee Naidoo": "ARQ"
+}
+
+# Team Names (for display)
+TEAM_NAMES = {
+    "Sipho Ramashiya": "Team Sipho",
+    "Anita Maharaj": "Team Anita",
+    "Palesa Maponya": "Team Palesa",
+    "Neo Thobejane": "Team Neo",
+    "Garth Masekele": "Team Garth",
+    "Sue Darrol": "Team Sue",
+    "Rethabile Nkadimeng": "Team Retha",
+    "Theo Sambinda": "Team Theo",
+    "Pacience Mashigo": "Team Pacience",
+    "Bradlee Naidoo": "Team Brads"
+}
+
+# Team Leader to Consultants Mapping (EXACT as per your list)
+TEAM_CONSULTANTS_MAP = {
+    "Sipho Ramashiya": [
+        "Aobakwe Peter",
+        "Daychannel Jasson",
+        "Diyajal Ramesar",
+        "Golden Raphulu",
+        "Karabo Ratau",
+        "Moreen Nkosi",
+        "Venessa Badi"
+    ],
+    "Anita Maharaj": [
+        "Bongani Sekese",
+        "Chriselda Silubane",
+        "Jeanerty Jiyane",
+        "Martin Kwinda",
+        "Molatelo Mohlapamaswi",
+        "Nokwethaba Buthelezi",
+        "Ntudiseng Komane",
+        "Qaqamba Somdakakazi",
+        "Rudzani Ratshumana",
+        "Ryle Basaviah",
+        "Shamla Shilubane"
+    ],
+    "Palesa Maponya": [
+        "Kgosietsile Seleke",
+        "Lerato Lepuru",
+        "Matome Sekhaolelo",
+        "Mpho Ramadwa",
+        "Precious Tlaka",
+        "Pumzile Siko",
+        "Refilwe Mokgonyana",
+        "Sholeen Franklin",
+        "Sylvia Letsiane",
+        "Thulie khumalo",
+        "Vuyelwa Mayekiso"
+    ],
+    "Neo Thobejane": [
+        "Anna Sekhaolelo",
+        "Joseph Rameetse",
+        "Neria Mohlapamaswi",
+        "Ndifhadza Modau",
+        "Nirvana Rampersad",
+        "Nonkqubela Maganga",
+        "Phelepine Mogaila",
+        "Prince Mabuza",
+        "Refiloe Mohlokoone",
+        "Thando Simelane",
+        "Busi Khanyeza"
+    ],
+    "Garth Masekele": [
+        "Bandile Khumalo",
+        "Basetsana Eva Masombuka",
+        "Bathabile Mathunjwa",
+        "Charmaine Sambo",
+        "Charmaine Samuel",
+        "Gadija Wilson",
+        "Gladys Thembi Matshiga",
+        "Emily Thandzwane",
+        "Mpho Makgoba",
+        "Sibonelo Phakathi",
+        "Terence Dyssel"
+    ],
+    "Sue Darrol": [
+        "Bafikile Bungane",
+        "Candice Julius",
+        "Constance Mashele",
+        "Dimpho Gaoletswe (Maaroganye)",
+        "Lindiwe Mazwe",
+        "Moleboheng Mafereka",
+        "Portia Mashego",
+        "Tirsa Wentzel",
+        "Veronicque Wilson",
+        "Prince Masengane",
+        "Thabiso Mokgotsi",
+        "Velancia Parker"
+    ],
+    "Rethabile Nkadimeng": [
+        "Bafedile Komane",
+        "Celine Kelly",
+        "Constantia Makgalia",
+        "Ernest Mthembu",
+        "Eulenda Mduli",
+        "Londeka Mdodana",
+        "Mathabo Makgopa",
+        "Memory Mpofu",
+        "Ndamulelo Makhado",
+        "Pheladi Rameetse",
+        "Margaret Matlala"
+    ],
+    "Theo Sambinda": [
+        "Choene Mojela (Jenny)",
+        "Cynthia Masiya",
+        "Gracious Tshabalala",
+        "Jeanette Thobane",
+        "Kwena Mojela (Lilian)",
+        "Martha Sangweni",
+        "Metlholo Koki",
+        "Thembi Hlongwane",
+        "Unathi Mbuli",
+        "Nokuthela Mashiloane",
+        "Phikisiwe Mthembu"
+    ],
+    "Pacience Mashigo": [
+        "Ayanda Booi",
+        "Claudia Malatji",
+        "Dineo Maija",
+        "Kelly Leso",
+        "Keseabetswe Sebatakgomo",
+        "Thando Ngcanga",
+        "Wiseman Zimemo",
+        "Faith Sekano",
+        "Marika Redelinghuys"
+    ],
+    "Bradlee Naidoo": [
+        "Kekeletso Tokeng",
+        "Kgotso Mavhunga",
+        "Lerato Mongolo",
+        "Maud Phosa",
+        "Nwabisa Mjobo",
+        "Vincent Bhengu",
+        "Zwanga Nndwammbi",
+        "Claudia Malatji",
+        "Qondile Zulu"
+    ]
+}
+
+# Department-specific scoring cards
+SCORING_CARDS = {
+    "Digital Support": {
+        "name": "Digital Support QA Scorecard",
+        "questions": {
+            1: "Q1: Was the consultant Friendly & Professional towards the customer?…i.e. Greetings, introduce yourself etc?",
+            2: "Q2: Did the consultant correctly validate the customer as per the validation process? (POPI Act)? ⚠️",
+            3: "Q3: Was the consultant Actively Listening to the customer? (Understanding the reason for the call)?",
+            4: "Q4: Did the consultant display Empathy?",
+            5: "Q5: Were notes placed on every interaction of the query/complaint?",
+            6: "Q6: Was the Hold Process followed correctly?",
+            7: "Q7: Was the call transferred to the appropriate Dept?",
+            8: "Q8: Did the consultant assist the client to navigate correctly?",
+            9: "Q9: Was the Pin/Password reset process followed?",
+            10: "Q10: Was the Branch referral correct i.e. Was it warranted or could it be resolved online? ⚠️",
+            11: "Q11: Did the agent call back the client?",
+            12: "Q12: Was Self-Service Promoted? i.e. Self-authentication via IVR, Karabo etc?"
+        },
+        "critical_questions": [2, 10]
+    },
+    "ARQ": {
+        "name": "ARQ Department QA Scorecard",
+        "questions": {
+            1: "Q1: Was the ARQ documentation completed accurately?",
+            2: "Q2: Were all compliance checks performed correctly? ⚠️",
+            3: "Q3: Did the consultant verify client eligibility?",
+            4: "Q4: Was the risk assessment properly documented?",
+            5: "Q5: Were all required signatures obtained?",
+            6: "Q6: Was the turnaround time within SLA?",
+            7: "Q7: Were follow-up actions clearly defined?",
+            8: "Q8: Was the client informed of next steps?",
+            9: "Q9: Were all supporting documents attached?",
+            10: "Q10: Was the final approval/rejection communicated properly? ⚠️",
+            11: "Q11: Was the ARQ checklist fully completed?",
+            12: "Q12: Was data entry accurate in the system?"
+        },
+        "critical_questions": [2, 10]
+    },
+    "DVQ (KYC)": {
+        "name": "DVQ (KYC) Department QA Scorecard",
+        "questions": {
+            1: "Q1: Was the KYC documentation thoroughly reviewed?",
+            2: "Q2: Were all identity verification steps completed? ⚠️",
+            3: "Q3: Was the customer risk rating correctly assessed?",
+            4: "Q4: Were PEP and sanctions checks performed?",
+            5: "Q5: Was the source of funds verified?",
+            6: "Q6: Were all required documents collected?",
+            7: "Q7: Was the KYC file properly documented?",
+            8: "Q8: Were any red flags properly escalated?",
+            9: "Q9: Was the KYC review completed within SLA?",
+            10: "Q10: Were compliance regulations fully followed? ⚠️",
+            11: "Q11: Was the customer properly informed of requirements?",
+            12: "Q12: Was the KYC file quality checked?"
+        },
+        "critical_questions": [2, 10]
+    },
+    "Assessment": {
+        "name": "Assessment Department QA Scorecard",
+        "questions": {
+            1: "Q1: Was the assessment scope clearly defined?",
+            2: "Q2: Were assessment criteria applied correctly? ⚠️",
+            3: "Q3: Was the assessment thorough and complete?",
+            4: "Q4: Were findings properly documented?",
+            5: "Q5: Were recommendations clear and actionable?",
+            6: "Q6: Was the assessment delivered on time?",
+            7: "Q7: Was client feedback incorporated?",
+            8: "Q8: Were risks properly evaluated?",
+            9: "Q9: Was the assessment report professional?",
+            10: "Q10: Were follow-up assessments scheduled if needed? ⚠️",
+            11: "Q11: Was the assessment methodology appropriate?",
+            12: "Q12: Were all stakeholders properly informed?"
+        },
+        "critical_questions": [2, 10]
+    },
+    "Confirmations": {
+        "name": "Confirmations Department QA Scorecard",
+        "questions": {
+            1: "Q1: Were confirmations sent within agreed timeframe?",
+            2: "Q2: Was confirmation data 100% accurate? ⚠️",
+            3: "Q3: Were all required parties included?",
+            4: "Q4: Was the confirmation method appropriate?",
+            5: "Q5: Were follow-ups documented?",
+            6: "Q6: Were discrepancies properly escalated?",
+            7: "Q7: Was confirmation tracking updated in system?",
+            8: "Q8: Were client preferences followed?",
+            9: "Q9: Were confirmations properly archived?",
+            10: "Q10: Was feedback from confirmations actioned? ⚠️",
+            11: "Q11: Were all compliance requirements met?",
+            12: "Q12: Was the confirmation process efficient?"
+        },
+        "critical_questions": [2, 10]
+    },
+    "Dialler": {
+        "name": "Dialler Department QA Scorecard",
+        "questions": {
+            1: "Q1: Was the call script followed correctly?",
+            2: "Q2: Were calling lists managed properly? ⚠️",
+            3: "Q3: Was call disposition accurately recorded?",
+            4: "Q4: Were customer objections handled professionally?",
+            5: "Q5: Was the call volume target achieved?",
+            6: "Q6: Were callback commitments honored?",
+            7: "Q7: Was the dialler system used efficiently?",
+            8: "Q8: Were customer data protection rules followed?",
+            9: "Q9: Was the call quality maintained throughout?",
+            10: "Q10: Were leads properly qualified and escalated? ⚠️",
+            11: "Q11: Was the customer experience positive?",
+            12: "Q12: Were all compliance requirements met during calls?"
+        },
+        "critical_questions": [2, 10]
+    }
+}
+
+# ==================== SCORING FUNCTIONS ====================
+
+def calculate_score(answers, critical_questions):
     """
     Calculate score based on answers.
-    SPECIAL RULE: Total score = 0 if Q2 OR Q10 = "No"
+    SPECIAL RULE: Total score = 0 if ANY critical question = "No"
     Other questions: Yes=1, No=0, NA=excluded
     """
-    # Check if Q2 or Q10 is "No" - if yes, total score = 0
-    if answers.get("q2") == "No" or answers.get("q10") == "No":
-        return 0, 0, 0
+    # Check if any critical question is "No" - if yes, total score = 0
+    for q_num in critical_questions:
+        if answers.get(f"q{q_num}") == "No":
+            return 0, 0, 0
     
     total_score = 0
     max_possible = 0
@@ -49,7 +319,6 @@ def calculate_score(answers):
         # Score 1 for Yes, 0 for No
         if answer == "Yes":
             total_score += 1
-        # No need for else since No = 0
     
     # Calculate percentage
     if max_possible > 0:
@@ -59,14 +328,16 @@ def calculate_score(answers):
     
     return score_percentage, total_score, max_possible
 
-# Initialize session state for form clearing
+# ==================== APP LAYOUT ====================
+
+# Initialize session state
 if 'form_submitted' not in st.session_state:
     st.session_state.form_submitted = False
-if 'clear_form' not in st.session_state:
-    st.session_state.clear_form = False
+if 'selected_team_leader' not in st.session_state:
+    st.session_state.selected_team_leader = None
 
 # Centered Main Title
-st.markdown("<h1 style='text-align: center;'>📊 Digital Support(QA Scorecard System)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🏢 Multi-Department QA Scorecard System</h1>", unsafe_allow_html=True)
 
 # Create tabs
 tab1, tab2, tab3 = st.tabs(["➕ New Audit", "📋 View Audits", "📈 Analytics Dashboard"])
@@ -83,128 +354,185 @@ with tab1:
             if st.button("🎯 Score Another Person", type="primary", use_container_width=True):
                 # Clear the form by resetting session state
                 st.session_state.form_submitted = False
-                st.session_state.clear_form = True
+                st.session_state.selected_team_leader = None
                 st.rerun()
         
         # Show the submitted audit details
-        with st.expander("📋 View Submitted Audit Details", expanded=True):
+        with st.expander("📋 View Submitted Audit Details", expanded=False):
             if 'last_submitted_data' in st.session_state:
                 st.write("**Last Submitted Audit:**")
                 st.json(st.session_state.last_submitted_data)
     
     # Create a fresh form instance
     with st.form("audit_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
+        st.subheader("👥 Team Information")
+        
+        col1, col2, col3 = st.columns(3)
         
         with col1:
-            consultant = st.selectbox(
-                "Consultant Name *",
-                ["Aobakwe Peter", "Daychannel Jasson", "Diyajal Ramesar", "Golden Raphulu", "Karabo Ratau", "Moreen Nkosi",],
+            # Team Leader dropdown
+            team_leaders = list(TEAM_DEPARTMENT_MAP.keys())
+            team_leader = st.selectbox(
+                "Team Leader *",
+                team_leaders,
                 index=None,
-                placeholder="Select consultant..."
+                placeholder="Select team leader...",
+                key="team_leader_select"
             )
-            team_leader = st.text_input("Team Leader *", value="Sipho Ramashiya")
             
+            # Store selection in session state for dynamic updates
+            if team_leader:
+                st.session_state.selected_team_leader = team_leader
+                # Show team name
+                team_name = TEAM_NAMES.get(team_leader, team_leader)
+                st.caption(f"👥 {team_name}")
+        
         with col2:
+            # Department (auto-filled based on team leader)
+            if st.session_state.selected_team_leader:
+                department = TEAM_DEPARTMENT_MAP[st.session_state.selected_team_leader]
+                st.text_input("Department *", value=department, disabled=True)
+            else:
+                st.text_input("Department *", value="Select team leader first", disabled=True)
+                department = None
+        
+        with col3:
+            # Consultant dropdown (dynamic based on team leader)
+            if st.session_state.selected_team_leader:
+                consultants = TEAM_CONSULTANTS_MAP[st.session_state.selected_team_leader]
+                consultant = st.selectbox(
+                    "Consultant *",
+                    sorted(consultants),  # Sort alphabetically
+                    index=None,
+                    placeholder="Select consultant..."
+                )
+            else:
+                st.selectbox(
+                    "Consultant *",
+                    ["Select team leader first"],
+                    disabled=True
+                )
+                consultant = None
+        
+        st.divider()
+        
+        # Client Information
+        st.subheader("📄 Client Information")
+        col4, col5 = st.columns(2)
+        
+        with col4:
             client_id = st.text_input("Client ID *", placeholder="CLIENT-001")
+        with col5:
             audit_date = st.date_input("Audit Date *", value=datetime.now())
         
         st.divider()
-        st.subheader("Quality Assessment Questions")
         
-        # Updated questions as per your specification
-        questions = {
-            1: "Q1: Was the consultant Friendly & Professional towards the customer?…i.e. Greetings, introduce yourself etc?",
-            2: "Q2: Did the consultant correctly validate the customer as per the validation process? (POPI Act)? ⚠️",
-            3: "Q3: Was the consultant Actively Listening to the customer? (Understanding the reason for the call)?",
-            4: "Q4: Did the consultant display Empathy?",
-            5: "Q5: Were notes placed on every interaction of the query/complaint?",
-            6: "Q6: Was the Hold Process followed correctly?",
-            7: "Q7: Was the call transferred to the appropriate Dept?",
-            8: "Q8: Did the consultant assist the client to navigate correctly?",
-            9: "Q9: Was the Pin/Password reset process followed?",
-            10: "Q10: Was the Branch referral correct i.e. Was it warranted or could it be resolved online? ⚠️",
-            11: "Q11: Did the agent call back the client?",
-            12: "Q12: Was Self-Service Promoted? i.e. Self-authentication via IVR, Karabo etc?"
-        }
-        
-        answers = {}
-        
-        # Create 3 columns for the questions
-        col_q1, col_q2, col_q3 = st.columns(3)
-        columns = [col_q1, col_q2, col_q3]
-        col_idx = 0
-        
-        for i in range(1, 13):
-            with columns[col_idx]:
-                question_text = questions[i]
-                answer = st.radio(
-                    question_text,
-                    ["Yes", "No", "NA"],
-                    horizontal=False,
-                    key=f"q{i}_form",
-                    index=None  # Start with no selection
-                )
-                answers[f"q{i}"] = answer
-                
-                # Show critical warning for Q2 and Q10
-                if i == 2 or i == 10:
-                    st.caption("⚠️ **CRITICAL:** 'No' = Total score = 0%")
+        # Show scoring card based on department
+        if st.session_state.selected_team_leader and department:
+            scoring_card = SCORING_CARDS.get(department, SCORING_CARDS["Digital Support"])
             
-            col_idx = (col_idx + 1) % 3
+            st.subheader(f"📋 {scoring_card['name']}")
+            st.caption(f"👥 {TEAM_NAMES.get(team_leader, team_leader)} - {department}")
+            
+            answers = {}
+            
+            # Create 3 columns for the questions
+            col_q1, col_q2, col_q3 = st.columns(3)
+            columns = [col_q1, col_q2, col_q3]
+            col_idx = 0
+            
+            for i in range(1, 13):
+                with columns[col_idx]:
+                    question_text = scoring_card['questions'][i]
+                    is_critical = i in scoring_card['critical_questions']
+                    
+                    if is_critical:
+                        question_text += " ⚠️"
+                    
+                    answer = st.radio(
+                        question_text,
+                        ["Yes", "No", "NA"],
+                        horizontal=False,
+                        key=f"q{i}_form_{department}_{team_leader}",
+                        index=None  # Start with no selection
+                    )
+                    answers[f"q{i}"] = answer
+                    
+                    # Show critical warning
+                    if is_critical:
+                        st.caption("⚠️ **CRITICAL:** 'No' = Total score = 0%")
+                
+                col_idx = (col_idx + 1) % 3
+            
+            # Calculate score
+            score_percentage, raw_score, max_score = calculate_score(answers, scoring_card['critical_questions'])
+            
+            st.divider()
+            st.warning(f"⚠️ **CRITICAL SCORING RULE:** If any critical question is 'No', the total score will be 0%")
+            
+            col6, col7, col8 = st.columns(3)
+            with col6:
+                # Check if any critical question is "No"
+                critical_failed = any(answers.get(f"q{q}") == "No" for q in scoring_card['critical_questions'])
+                if critical_failed:
+                    st.error(f"❌ Total Score: {score_percentage}%")
+                    st.caption("(Critical question = 'No')")
+                else:
+                    st.metric("Total Score", f"{score_percentage}%")
+            
+            with col7:
+                if critical_failed:
+                    st.metric("Raw Score", "0/0")
+                    st.caption("Critical failure")
+                else:
+                    st.metric("Raw Score", f"{raw_score}/{max_score}")
+            
+            with col8:
+                # Color code based on score
+                if critical_failed:
+                    st.error("❌ FAIL - Critical Error")
+                elif score_percentage >= 85:
+                    st.success("Excellent ✓")
+                elif score_percentage >= 70:
+                    st.warning("Good ⚠️")
+                else:
+                    st.error("Needs Improvement ✗")
+            
+            # Show critical question status
+            for q_num in scoring_card['critical_questions']:
+                if answers.get(f"q{q_num}") == "No":
+                    st.error(f"**❌ Q{q_num} FAIL:** Critical requirement not met")
         
-        # Calculate score
-        score_percentage, raw_score, max_score = calculate_score(answers)
+        else:
+            st.info("👈 Please select a Team Leader to see the scoring card")
+            answers = {}
+            score_percentage = 0
+            critical_failed = False
         
         st.divider()
-        st.warning("⚠️ **CRITICAL SCORING RULE:** If Q2 OR Q10 is 'No', the total score will be 0%")
-        
-        col3, col4, col5 = st.columns(3)
-        with col3:
-            if answers.get("q2") == "No" or answers.get("q10") == "No":
-                st.error(f"❌ Total Score: {score_percentage}%")
-                st.caption("(Q2 or Q10 = 'No')")
-            else:
-                st.metric("Total Score", f"{score_percentage}%")
-        
-        with col4:
-            if answers.get("q2") == "No" or answers.get("q10") == "No":
-                st.metric("Raw Score", "0/0")
-                st.caption("Critical failure")
-            else:
-                st.metric("Raw Score", f"{raw_score}/{max_score}")
-        
-        with col5:
-            # Color code based on score
-            if answers.get("q2") == "No" or answers.get("q10") == "No":
-                st.error("❌ FAIL - Critical Error")
-            elif score_percentage >= 85:
-                st.success("Excellent ✓")
-            elif score_percentage >= 70:
-                st.warning("Good ⚠️")
-            else:
-                st.error("Needs Improvement ✗")
-        
-        # Show critical question status
-        if answers.get("q2") == "No":
-            st.error("**❌ Q2 FAIL:** Customer validation (POPI Act) not followed")
-        if answers.get("q10") == "No":
-            st.error("**❌ Q10 FAIL:** Incorrect branch referral")
-        
+        st.subheader("💬 Additional Information")
         comments = st.text_area("Additional Comments", placeholder="Enter any additional comments here...")
         
         # Submit button with primary styling
         col_submit1, col_submit2, col_submit3 = st.columns([1, 2, 1])
         with col_submit2:
-            submitted = st.form_submit_button("📥 Submit Audit", type="primary", use_container_width=True)
+            submitted = st.form_submit_button("📥 Submit Audit", type="primary", use_container_width=True,
+                                            disabled=not st.session_state.selected_team_leader)
         
         if submitted:
-            if not all([consultant, team_leader, client_id]):
+            # Validate required fields
+            required_fields = [team_leader, consultant, client_id]
+            if not all(required_fields):
                 st.error("Please fill all required fields (*)")
+            elif not all(answers.values()):  # Check if all questions are answered
+                st.error("Please answer all questions")
             else:
+                department = TEAM_DEPARTMENT_MAP[team_leader]
+                
                 data = {
                     "consultant": consultant,
                     "team_leader": team_leader,
+                    "department": department,
                     "client_id": client_id,
                     "audit_date": audit_date.isoformat(),
                     "score": score_percentage,
@@ -219,11 +547,13 @@ with tab1:
                     st.session_state.last_submitted_data = data
                     st.session_state.form_submitted = True
                     
-                    # Don't show the success message here - it will show after rerun
+                    # Rerun to show success message
                     st.rerun()
                     
                 except Exception as e:
                     st.error(f"❌ Error submitting audit: {e}")
+                    if "department" in str(e):
+                        st.info("⚠️ You need to update your database to add the 'department' column. See instructions in the sidebar.")
 
 with tab2:
     st.markdown("<h2 style='text-align: center;'>View Audits</h2>", unsafe_allow_html=True)
@@ -234,40 +564,89 @@ with tab2:
         if response.data:
             df = pd.DataFrame(response.data)
             
+            # If department column doesn't exist yet, add a placeholder
+            if 'department' not in df.columns:
+                df['department'] = 'Not Assigned'
+            
             # Calculate metrics
             total_audits = len(df)
             avg_score = df['score'].mean()
-            q2_no_count = len(df[df['q2'] == 'No'])
-            q10_no_count = len(df[df['q10'] == 'No'])
-            critical_failures = len(df[(df['q2'] == 'No') | (df['q10'] == 'No')])
+            
+            # Try to calculate critical failures
+            critical_failures = 0
+            if all(col in df.columns for col in ['q2', 'q10']):
+                critical_failures = len(df[(df['q2'] == 'No') | (df['q10'] == 'No')])
             
             # Show metrics
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4, col5 = st.columns(5)
             with col1:
                 st.metric("Total Audits", total_audits)
             with col2:
                 st.metric("Average Score", f"{avg_score:.1f}%")
             with col3:
                 st.metric("Critical Failures", critical_failures)
-                st.caption("Q2 or Q10 = 'No'")
+                st.caption("Critical questions = 'No'")
             with col4:
                 pass_rate = ((total_audits - critical_failures) / total_audits * 100) if total_audits > 0 else 0
                 st.metric("Pass Rate", f"{pass_rate:.1f}%")
+            with col5:
+                dept_count = df['department'].nunique()
+                st.metric("Departments", dept_count)
+            
+            # Team Summary
+            st.subheader("👥 Team Summary")
+            team_summary = df.groupby(['department', 'team_leader']).agg({
+                'score': 'mean',
+                'id': 'count'
+            }).round(1).reset_index()
+            team_summary.columns = ['Department', 'Team Leader', 'Avg Score', 'Audits']
+            
+            col_sum1, col_sum2 = st.columns(2)
+            with col_sum1:
+                st.dataframe(
+                    team_summary,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Department": "Department",
+                        "Team Leader": "Team Leader",
+                        "Avg Score": st.column_config.NumberColumn("Avg Score", format="%.1f %%"),
+                        "Audits": "Audits"
+                    }
+                )
+            
+            with col_sum2:
+                # Top performing teams
+                top_teams = team_summary.sort_values('Avg Score', ascending=False).head(5)
+                st.write("**🏆 Top 5 Performing Teams**")
+                for idx, row in top_teams.iterrows():
+                    score_color = "🟢" if row['Avg Score'] >= 85 else "🟡" if row['Avg Score'] >= 70 else "🔴"
+                    st.write(f"{score_color} **{row['Team Leader']}** ({row['Department']}): {row['Avg Score']}% ({row['Audits']} audits)")
+            
+            st.divider()
             
             # Dataframe with critical indicators
             def highlight_critical(row):
-                if row['q2'] == 'No' or row['q10'] == 'No':
-                    return ['background-color: #ffcccc'] * len(row)
+                if 'q2' in row and 'q10' in row:
+                    if row['q2'] == 'No' or row['q10'] == 'No':
+                        return ['background-color: #ffcccc'] * len(row)
                 return [''] * len(row)
             
-            st.subheader("All Audits")
-            display_df = df[['id', 'audit_date', 'consultant', 'team_leader', 
-                           'client_id', 'score', 'q2', 'q10', 'comments']].copy()
+            # Column selection for display
+            display_columns = ['id', 'audit_date', 'department', 'team_leader', 'consultant', 'client_id', 'score']
+            
+            # Add question columns if they exist
+            for col in ['q2', 'q10', 'comments']:
+                if col in df.columns:
+                    display_columns.append(col)
+            
+            display_df = df[display_columns].copy()
             
             # Apply styling
             styled_df = display_df.style.apply(highlight_critical, axis=1)
             
             # Display the dataframe
+            st.subheader("All Audits")
             st.dataframe(
                 styled_df,
                 use_container_width=True,
@@ -275,24 +654,23 @@ with tab2:
                 column_config={
                     "id": st.column_config.NumberColumn("ID", width="small"),
                     "audit_date": "Date",
-                    "consultant": "Consultant",
+                    "department": "Department",
                     "team_leader": "Team Lead",
+                    "consultant": "Consultant",
                     "client_id": "Client ID",
                     "score": st.column_config.NumberColumn(
                         "Score", 
                         format="%.1f %%",
-                        help="Score = 0% if Q2 or Q10 = 'No'"
+                        help="Score = 0% if critical question = 'No'"
                     ),
                     "q2": st.column_config.TextColumn(
                         "Q2 ⚠️", 
-                        width="small",
-                        help="Customer validation (POPI Act)"
-                    ),
+                        width="small"
+                    ) if 'q2' in display_columns else None,
                     "q10": st.column_config.TextColumn(
                         "Q10 ⚠️", 
-                        width="small",
-                        help="Branch referral correctness"
-                    ),
+                        width="small"
+                    ) if 'q10' in display_columns else None,
                     "comments": "Comments"
                 }
             )
@@ -324,10 +702,14 @@ with tab3:
         else:
             df = pd.DataFrame(response.data)
             
+            # If department column doesn't exist yet, add a placeholder
+            if 'department' not in df.columns:
+                df['department'] = 'Not Assigned'
+            
             # Convert audit_date to datetime and extract date components
             df['audit_date'] = pd.to_datetime(df['audit_date'])
-            df['year_month'] = df['audit_date'].dt.strftime('%Y-%m')  # Format: 2024-01
-            df['month_name'] = df['audit_date'].dt.strftime('%B %Y')  # Format: January 2024
+            df['year_month'] = df['audit_date'].dt.strftime('%Y-%m')
+            df['month_name'] = df['audit_date'].dt.strftime('%B %Y')
             df['week'] = df['audit_date'].dt.isocalendar().week
             df['month'] = df['audit_date'].dt.month
             df['day'] = df['audit_date'].dt.date
@@ -340,26 +722,36 @@ with tab3:
             col_filter1, col_filter2, col_filter3, col_filter4 = st.columns(4)
             
             with col_filter1:
-                # Month filter (multi-select)
-                all_months = sorted(df['month_name'].unique(), reverse=True)
-                selected_months = st.multiselect(
-                    "Select Month(s)",
-                    options=all_months,
-                    default=all_months[:3] if len(all_months) >= 3 else all_months,
-                    help="Select one or more months to filter"
+                # Department filter
+                all_departments = sorted(df['department'].unique())
+                selected_departments = st.multiselect(
+                    "Select Department(s)",
+                    options=all_departments,
+                    default=all_departments,
+                    help="Filter by department"
                 )
             
             with col_filter2:
-                # Consultant filter (multi-select)
+                # Team Leader filter
+                all_team_leaders = sorted(df['team_leader'].unique())
+                selected_team_leaders = st.multiselect(
+                    "Select Team Leader(s)",
+                    options=all_team_leaders,
+                    default=all_team_leaders,
+                    help="Filter by team leader"
+                )
+            
+            with col_filter3:
+                # Consultant filter
                 all_consultants = sorted(df['consultant'].unique())
                 selected_consultants = st.multiselect(
                     "Select Consultant(s)",
                     options=all_consultants,
                     default=all_consultants,
-                    help="Select one or more consultants"
+                    help="Filter by consultant"
                 )
             
-            with col_filter3:
+            with col_filter4:
                 # Date range filter
                 min_date = df['audit_date'].min().date()
                 max_date = df['audit_date'].max().date()
@@ -371,25 +763,16 @@ with tab3:
                     max_value=max_date
                 )
             
-            with col_filter4:
-                # Score range filter
-                min_score = st.slider(
-                    "Minimum Score",
-                    min_value=0,
-                    max_value=100,
-                    value=0,
-                    help="Filter by minimum score percentage"
-                )
-                
-                # Critical failures toggle
-                show_critical_only = st.checkbox("Show Critical Failures Only", value=False)
-            
             # Apply filters
             filtered_df = df.copy()
             
-            # Apply month filter
-            if selected_months:
-                filtered_df = filtered_df[filtered_df['month_name'].isin(selected_months)]
+            # Apply department filter
+            if selected_departments:
+                filtered_df = filtered_df[filtered_df['department'].isin(selected_departments)]
+            
+            # Apply team leader filter
+            if selected_team_leaders:
+                filtered_df = filtered_df[filtered_df['team_leader'].isin(selected_team_leaders)]
             
             # Apply consultant filter
             if selected_consultants:
@@ -402,13 +785,6 @@ with tab3:
                     (filtered_df['audit_date'].dt.date >= start_date) &
                     (filtered_df['audit_date'].dt.date <= end_date)
                 ]
-            
-            # Apply score filter
-            filtered_df = filtered_df[filtered_df['score'] >= min_score]
-            
-            # Apply critical failures filter
-            if show_critical_only:
-                filtered_df = filtered_df[(filtered_df['q2'] == 'No') | (filtered_df['q10'] == 'No')]
             
             # Show filter summary
             st.info(f"📊 **Showing {len(filtered_df)} out of {len(df)} audits**")
@@ -423,270 +799,198 @@ with tab3:
             # Calculate filtered metrics
             total_audits_filtered = len(filtered_df)
             avg_score_filtered = filtered_df['score'].mean()
-            critical_failures_filtered = len(filtered_df[(filtered_df['q2'] == 'No') | (filtered_df['q10'] == 'No')])
+            
+            # Calculate critical failures
+            critical_failures_filtered = 0
+            if all(col in filtered_df.columns for col in ['q2', 'q10']):
+                critical_failures_filtered = len(filtered_df[(filtered_df['q2'] == 'No') | (filtered_df['q10'] == 'No')])
+            
             pass_rate_filtered = ((total_audits_filtered - critical_failures_filtered) / total_audits_filtered * 100) if total_audits_filtered > 0 else 0
             
-            # Top row - Key Metrics (FILTERED)
-            st.subheader("📊 Key Performance Indicators (Filtered)")
+            # Top row - Key Metrics
+            st.subheader("📊 Key Performance Indicators")
             kpi1, kpi2, kpi3, kpi4 = st.columns(4)
             
             with kpi1:
-                delta_audits = total_audits_filtered - len(df)
-                st.metric("Total Audits", total_audits_filtered, 
-                         delta=f"{delta_audits:+d}" if delta_audits != 0 else None)
+                st.metric("Total Audits", total_audits_filtered)
             
             with kpi2:
-                delta_score = avg_score_filtered - df['score'].mean()
-                st.metric("Average Score", f"{avg_score_filtered:.1f}%", 
-                         delta=f"{delta_score:+.1f}%" if delta_score != 0 else None)
+                st.metric("Average Score", f"{avg_score_filtered:.1f}%")
             
             with kpi3:
-                delta_pass = pass_rate_filtered - ((len(df) - len(df[(df['q2'] == 'No') | (df['q10'] == 'No')])) / len(df) * 100 if len(df) > 0 else 0)
-                st.metric("Pass Rate", f"{pass_rate_filtered:.1f}%",
-                         delta=f"{delta_pass:+.1f}%" if delta_pass != 0 else None)
+                st.metric("Pass Rate", f"{pass_rate_filtered:.1f}%")
             
             with kpi4:
-                delta_critical = critical_failures_filtered - len(df[(df['q2'] == 'No') | (df['q10'] == 'No')])
-                st.metric("Critical Failures", critical_failures_filtered, 
-                         delta=f"{delta_critical:+d}" if delta_critical != 0 else None,
-                         delta_color="inverse")
+                st.metric("Critical Failures", critical_failures_filtered, delta_color="inverse")
             
             st.divider()
             
-            # Row 1 - Performance Trends (FILTERED)
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("📈 Performance Trend (Filtered)")
-                
-                if len(filtered_df) > 1:
-                    # Daily average scores
-                    daily_scores = filtered_df.groupby('day')['score'].mean().reset_index()
-                    daily_scores['7_day_avg'] = daily_scores['score'].rolling(window=7, min_periods=1).mean()
-                    
-                    fig1 = go.Figure()
-                    fig1.add_trace(go.Scatter(x=daily_scores['day'], y=daily_scores['score'],
-                                             mode='lines+markers', name='Daily Score',
-                                             line=dict(color='royalblue', width=2)))
-                    fig1.add_trace(go.Scatter(x=daily_scores['day'], y=daily_scores['7_day_avg'],
-                                             mode='lines', name='7-Day Average',
-                                             line=dict(color='firebrick', width=3, dash='dash')))
-                    
-                    fig1.update_layout(
-                        xaxis_title="Date",
-                        yaxis_title="Average Score (%)",
-                        hovermode='x unified',
-                        height=400
-                    )
-                    st.plotly_chart(fig1, use_container_width=True)
-                else:
-                    st.info("Need at least 2 audits to show trend")
-            
-            with col2:
-                st.subheader("👥 Consultant Performance (Filtered)")
-                
-                if len(filtered_df) > 0:
-                    consultant_scores = filtered_df.groupby('consultant').agg({
-                        'score': 'mean',
-                        'id': 'count'
-                    }).round(1).reset_index()
-                    consultant_scores = consultant_scores.rename(columns={'id': 'audit_count', 'score': 'avg_score'})
-                    
-                    # Sort by average score
-                    consultant_scores = consultant_scores.sort_values('avg_score', ascending=True)
-                    
-                    fig2 = go.Figure(go.Bar(
-                        x=consultant_scores['avg_score'],
-                        y=consultant_scores['consultant'],
-                        orientation='h',
-                        text=consultant_scores['avg_score'].astype(str) + '%',
-                        textposition='outside',
-                        marker_color='lightseagreen'
-                    ))
-                    
-                    fig2.update_layout(
-                        xaxis_title="Average Score (%)",
-                        yaxis_title="Consultant",
-                        height=400,
-                        showlegend=False
-                    )
-                    st.plotly_chart(fig2, use_container_width=True)
-                else:
-                    st.info("No consultant data available")
-            
-            st.divider()
-            
-            # Row 2 - Question Analysis (FILTERED)
-            st.subheader("❓ Question Performance Analysis (Filtered)")
+            # Department Performance
+            st.subheader("🏢 Department Performance")
             
             if len(filtered_df) > 0:
-                # Calculate pass rates for each question
-                question_stats = []
-                for q in range(1, 13):
-                    q_col = f'q{q}'
-                    total_responses = len(filtered_df[filtered_df[q_col] != 'NA'])
-                    if total_responses > 0:
-                        yes_count = len(filtered_df[filtered_df[q_col] == 'Yes'])
-                        pass_rate_q = (yes_count / total_responses) * 100
-                    else:
-                        pass_rate_q = 0
-                    
-                    question_stats.append({
-                        'Question': f'Q{q}',
-                        'Pass Rate (%)': round(pass_rate_q, 1),
-                        'Critical': '⚠️' if q in [2, 10] else ''
-                    })
-                
-                question_df = pd.DataFrame(question_stats)
-                
-                col3, col4 = st.columns(2)
-                
-                with col3:
-                    fig3 = go.Figure(go.Bar(
-                        x=question_df['Question'],
-                        y=question_df['Pass Rate (%)'],
-                        text=question_df['Pass Rate (%)'].astype(str) + '%',
-                        textposition='auto',
-                        marker_color=['#ff6b6b' if q in ['Q2', 'Q10'] else '#4ecdc4' for q in question_df['Question']]
-                    ))
-                    
-                    fig3.update_layout(
-                        xaxis_title="Question",
-                        yaxis_title="Pass Rate (%)",
-                        height=400,
-                        xaxis={'categoryorder': 'total descending'}
-                    )
-                    st.plotly_chart(fig3, use_container_width=True)
-                
-                with col4:
-                    st.subheader("Question Details")
-                    st.dataframe(
-                        question_df,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "Question": "Question",
-                            "Pass Rate (%)": st.column_config.NumberColumn("Pass Rate", format="%.1f %%"),
-                            "Critical": st.column_config.TextColumn("Critical", width="small")
-                        }
-                    )
-            else:
-                st.info("No question data available for current filters")
-            
-            st.divider()
-            
-            # Row 3 - Month-wise Comparison
-            st.subheader("📅 Monthly Performance Comparison")
-            
-            if len(filtered_df) > 0 and len(selected_months) > 1:
-                # Group by month
-                monthly_stats = filtered_df.groupby('month_name').agg({
+                dept_performance = filtered_df.groupby('department').agg({
                     'score': ['mean', 'count'],
                     'id': 'count'
                 }).round(1).reset_index()
                 
                 # Flatten column names
-                monthly_stats.columns = ['Month', 'Avg_Score', 'Audit_Count', 'Total']
+                dept_performance.columns = ['Department', 'Avg_Score', 'Audit_Count', 'Total']
                 
-                # Sort by month chronologically
-                monthly_stats['Month_Date'] = pd.to_datetime(monthly_stats['Month'], format='%B %Y')
-                monthly_stats = monthly_stats.sort_values('Month_Date')
+                col_dept1, col_dept2 = st.columns(2)
                 
-                col5, col6 = st.columns(2)
-                
-                with col5:
-                    # Bar chart for monthly scores
-                    fig4 = go.Figure(go.Bar(
-                        x=monthly_stats['Month'],
-                        y=monthly_stats['Avg_Score'],
-                        text=monthly_stats['Avg_Score'].astype(str) + '%',
+                with col_dept1:
+                    # Bar chart
+                    fig1 = go.Figure(go.Bar(
+                        x=dept_performance['Department'],
+                        y=dept_performance['Avg_Score'],
+                        text=dept_performance['Avg_Score'].astype(str) + '%',
                         textposition='auto',
                         marker_color='cornflowerblue'
                     ))
                     
-                    fig4.update_layout(
-                        xaxis_title="Month",
+                    fig1.update_layout(
+                        xaxis_title="Department",
                         yaxis_title="Average Score (%)",
                         height=400
                     )
-                    st.plotly_chart(fig4, use_container_width=True)
+                    st.plotly_chart(fig1, use_container_width=True)
                 
-                with col6:
-                    # Line chart for trend
-                    fig5 = go.Figure(go.Scatter(
-                        x=monthly_stats['Month'],
-                        y=monthly_stats['Avg_Score'],
-                        mode='lines+markers',
-                        line=dict(color='royalblue', width=3),
-                        marker=dict(size=10)
-                    ))
-                    
-                    fig5.update_layout(
-                        xaxis_title="Month",
-                        yaxis_title="Average Score (%)",
-                        height=400
+                with col_dept2:
+                    # Table view
+                    st.dataframe(
+                        dept_performance,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Department": "Department",
+                            "Avg_Score": st.column_config.NumberColumn("Avg Score", format="%.1f %%"),
+                            "Audit_Count": "Audit Count"
+                        }
                     )
-                    st.plotly_chart(fig5, use_container_width=True)
-            else:
-                st.info("Select multiple months to see monthly comparison")
             
             st.divider()
             
-            # Row 4 - Export Filtered Data
+            # Team Leader Performance
+            st.subheader("👥 Team Leader Performance")
+            
+            if len(filtered_df) > 0:
+                team_performance = filtered_df.groupby(['department', 'team_leader']).agg({
+                    'score': 'mean',
+                    'id': 'count'
+                }).round(1).reset_index()
+                team_performance.columns = ['Department', 'Team Leader', 'Avg Score', 'Audits']
+                
+                # Top 10 team leaders
+                top_teams = team_performance.sort_values('Avg Score', ascending=False).head(10)
+                
+                fig2 = go.Figure(go.Bar(
+                    x=top_teams['Team Leader'],
+                    y=top_teams['Avg Score'],
+                    text=top_teams['Avg Score'].astype(str) + '%',
+                    textposition='auto',
+                    marker_color='lightseagreen'
+                ))
+                
+                fig2.update_layout(
+                    xaxis_title="Team Leader",
+                    yaxis_title="Average Score (%)",
+                    height=400
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+            
+            st.divider()
+            
+            # Consultant Leaderboard
+            st.subheader("🌟 Consultant Leaderboard")
+            
+            if len(filtered_df) > 0:
+                consultant_performance = filtered_df.groupby(['team_leader', 'consultant']).agg({
+                    'score': 'mean',
+                    'id': 'count'
+                }).round(1).reset_index()
+                consultant_performance.columns = ['Team Leader', 'Consultant', 'Avg Score', 'Audits']
+                
+                # Top 15 consultants
+                top_consultants = consultant_performance.sort_values('Avg Score', ascending=False).head(15)
+                bottom_consultants = consultant_performance.sort_values('Avg Score', ascending=True).head(15)
+                
+                col_cons1, col_cons2 = st.columns(2)
+                
+                with col_cons1:
+                    st.write("**🏆 Top 15 Consultants**")
+                    st.dataframe(
+                        top_consultants,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Team Leader": "Team Leader",
+                            "Consultant": "Consultant",
+                            "Avg Score": st.column_config.NumberColumn("Avg Score", format="%.1f %%"),
+                            "Audits": "Audits"
+                        }
+                    )
+                
+                with col_cons2:
+                    st.write("**📉 Bottom 15 Consultants**")
+                    st.dataframe(
+                        bottom_consultants,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Team Leader": "Team Leader",
+                            "Consultant": "Consultant",
+                            "Avg Score": st.column_config.NumberColumn("Avg Score", format="%.1f %%"),
+                            "Audits": "Audits"
+                        }
+                    )
+            
+            # Export Filtered Data
+            st.divider()
             st.subheader("💾 Export Filtered Data")
             
-            col7, col8, col9 = st.columns(3)
-            
-            with col7:
-                # Show filtered data preview
-                st.write(f"**Filtered Data Preview** ({len(filtered_df)} rows)")
-                st.dataframe(
-                    filtered_df[['audit_date', 'consultant', 'team_leader', 'client_id', 'score']].head(10),
-                    use_container_width=True,
-                    hide_index=True
-                )
-            
-            with col8:
-                # Download filtered data as CSV
-                csv_filtered = filtered_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download Filtered Data (CSV)",
-                    data=csv_filtered,
-                    file_name=f"filtered_audits_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            
-            with col9:
-                # Reset filters button
-                if st.button("🔄 Reset All Filters", use_container_width=True):
-                    st.rerun()
-            
-            # Quick filter presets
-            st.subheader("⚡ Quick Filter Presets")
-            
-            preset_col1, preset_col2, preset_col3, preset_col4 = st.columns(4)
-            
-            with preset_col1:
-                if st.button("📅 Last 30 Days", use_container_width=True):
-                    thirty_days_ago = (datetime.now() - timedelta(days=30)).date()
-                    filtered_df = df[df['audit_date'].dt.date >= thirty_days_ago]
-                    st.rerun()
-            
-            with preset_col2:
-                if st.button("👑 Top Performers", use_container_width=True):
-                    filtered_df = df[df['score'] >= 85]
-                    st.rerun()
-            
-            with preset_col3:
-                if st.button("⚠️ Critical Issues", use_container_width=True):
-                    filtered_df = df[(df['q2'] == 'No') | (df['q10'] == 'No')]
-                    st.rerun()
-            
-            with preset_col4:
-                if st.button("📊 All Data", use_container_width=True):
-                    filtered_df = df
-                    st.rerun()
+            csv_filtered = filtered_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Filtered Data (CSV)",
+                data=csv_filtered,
+                file_name=f"filtered_audits_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
             
     except Exception as e:
         st.error(f"Error loading analytics: {e}")
+
+# ==================== SIDEBAR INSTRUCTIONS ====================
+
+with st.sidebar:
+    with st.expander("⚠️ Database Update Required", expanded=False):
+        st.write("""
+        **To use the new department feature, run this SQL in Supabase SQL Editor:**
+        
+        ```sql
+        -- Add department column
+        ALTER TABLE audits 
+        ADD COLUMN IF NOT EXISTS department TEXT;
+        
+        -- Update existing records to 'Digital Support' (or appropriate department)
+        UPDATE audits 
+        SET department = 'Digital Support' 
+        WHERE department IS NULL;
+        ```
+        
+        **Without this update:**  
+        - New audits will fail to save  
+        - Department field will show as 'Not Assigned'  
+        """)
+    
+    with st.expander("👥 Team Structure", expanded=False):
+        st.write("**Team Leader → Department Mapping:**")
+        for tl, dept in TEAM_DEPARTMENT_MAP.items():
+            team_name = TEAM_NAMES.get(tl, tl)
+            st.write(f"- **{tl}** ({team_name}) → {dept}")
+    
+    with st.expander("📊 Departments", expanded=False):
+        st.write("**Available Scoring Cards:**")
+        for dept in sorted(SCORING_CARDS.keys()):
+            st.write(f"- **{dept}**: {SCORING_CARDS[dept]['name']}")
