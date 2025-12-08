@@ -308,8 +308,6 @@ if 'selected_department' not in st.session_state:
     st.session_state.selected_department = None
 if 'available_consultants' not in st.session_state:
     st.session_state.available_consultants = []
-if 'show_scoring_card' not in st.session_state:
-    st.session_state.show_scoring_card = False
 
 # Centered Main Title
 st.markdown("<h1 style='text-align: center;'>🏢 Multi-Department QA Scorecard System</h1>", unsafe_allow_html=True)
@@ -328,44 +326,38 @@ with tab1:
             if st.button("🎯 Score Another Person", type="primary", use_container_width=True):
                 # Reset everything
                 for key in ['form_submitted', 'selected_team_leader', 'selected_department', 
-                           'available_consultants', 'show_scoring_card']:
+                           'available_consultants']:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
     
-    # Step 1: Team Leader Selection (OUTSIDE the form for immediate update)
-    st.subheader("👥 Step 1: Select Team Leader")
-    
-    team_leaders = list(TEAM_DEPARTMENT_MAP.keys())
-    team_leader = st.selectbox(
-        "Team Leader *",
-        team_leaders,
-        index=None,
-        placeholder="Select team leader...",
-        key="team_leader_select_main"
-    )
-    
-    # Update session state immediately when team leader changes
-    if team_leader != st.session_state.get('selected_team_leader'):
-        st.session_state.selected_team_leader = team_leader
+    # SIMPLIFIED FORM - Everything inside one form
+    with st.form("audit_form", clear_on_submit=True):
+        # Team Leader Selection
+        st.subheader("👥 Step 1: Select Team Leader")
+        
+        team_leaders = list(TEAM_DEPARTMENT_MAP.keys())
+        team_leader = st.selectbox(
+            "Team Leader *",
+            team_leaders,
+            index=None,
+            placeholder="Select team leader...",
+            key="team_leader_select"
+        )
+        
+        # Update session state when team leader is selected
         if team_leader:
+            st.session_state.selected_team_leader = team_leader
             st.session_state.selected_department = TEAM_DEPARTMENT_MAP.get(team_leader)
             st.session_state.available_consultants = TEAM_CONSULTANTS_MAP.get(team_leader, [])
-            st.session_state.show_scoring_card = True
-        else:
-            st.session_state.selected_department = None
-            st.session_state.available_consultants = []
-            st.session_state.show_scoring_card = False
-    
-    # Show Department (read-only display)
-    if st.session_state.selected_team_leader and st.session_state.selected_department:
-        st.subheader("🏢 Step 2: Department (Auto-filled)")
-        st.info(f"**Department:** {st.session_state.selected_department}")
-    
-    # Now create the form for the rest of the inputs
-    with st.form("audit_form", clear_on_submit=True):
-        # Step 3: Consultant Selection (inside form)
-        if st.session_state.selected_team_leader:
+        
+        # Show Department
+        if st.session_state.selected_team_leader and st.session_state.selected_department:
+            st.subheader("🏢 Step 2: Department (Auto-filled)")
+            st.info(f"**{st.session_state.selected_department}**")
+        
+        # Consultant Selection
+        if st.session_state.selected_team_leader and st.session_state.available_consultants:
             st.subheader("👤 Step 3: Select Consultant")
             consultant = st.selectbox(
                 "Consultant *",
@@ -375,10 +367,13 @@ with tab1:
                 key="consultant_select"
             )
         else:
-            st.warning("Please select a Team Leader first to see consultants")
+            if st.session_state.selected_team_leader:
+                st.warning("No consultants found for this team leader")
+            else:
+                st.info("Select a team leader to see consultants")
             consultant = None
         
-        # Step 4: Client Information
+        # Client Information
         st.subheader("📄 Step 4: Client Information")
         col4, col5 = st.columns(2)
         
@@ -386,9 +381,13 @@ with tab1:
             client_id = st.text_input("Client ID *", placeholder="CLIENT-001", key="client_id")
         with col5:
             audit_date = st.date_input("Audit Date *", value=datetime.now(), key="audit_date")
+            audit_time = st.time_input("Audit Time *", value=datetime.now().time(), key="audit_time")
         
-        # Step 5: Scoring Card
-        if st.session_state.show_scoring_card and st.session_state.selected_department:
+        # Combine date and time
+        audit_datetime = datetime.combine(audit_date, audit_time)
+        
+        # Scoring Card
+        if st.session_state.selected_team_leader and st.session_state.selected_department:
             scoring_card = SCORING_CARDS.get(st.session_state.selected_department, SCORING_CARDS["Digital Support"])
             
             st.subheader(f"📋 Step 5: {scoring_card['name']}")
@@ -413,7 +412,7 @@ with tab1:
                         question_text,
                         ["Yes", "No", "NA"],
                         horizontal=False,
-                        key=f"q{i}_{st.session_state.selected_department}",
+                        key=f"q{i}_{st.session_state.selected_department}_{datetime.now().timestamp()}",
                         index=None
                     )
                     answers[f"q{i}"] = answer
@@ -455,7 +454,7 @@ with tab1:
                 else:
                     st.error("Needs Improvement ✗")
         else:
-            st.info("👈 **Please select a Team Leader above to see the scoring card**")
+            st.info("👈 **Please select a Team Leader to see the scoring card**")
             answers = {}
             score_percentage = 0
             critical_failed = False
@@ -470,15 +469,26 @@ with tab1:
             submitted = st.form_submit_button("📥 Submit Audit", type="primary", use_container_width=True)
         
         if submitted:
+            # Validation
+            validation_passed = True
+            
             if not team_leader:
                 st.error("❌ Please select a Team Leader")
-            elif not consultant:
+                validation_passed = False
+            
+            if not consultant:
                 st.error("❌ Please select a Consultant")
-            elif not client_id:
+                validation_passed = False
+            
+            if not client_id:
                 st.error("❌ Please enter a Client ID")
-            elif not all(answers.values()):
+                validation_passed = False
+            
+            if not all(answers.values()):
                 st.error("❌ Please answer all questions")
-            else:
+                validation_passed = False
+            
+            if validation_passed:
                 department = st.session_state.selected_department
                 
                 data = {
@@ -486,32 +496,52 @@ with tab1:
                     "team_leader": team_leader,
                     "department": department,
                     "client_id": client_id,
-                    "audit_date": audit_date.isoformat(),
+                    "audit_date": audit_datetime.isoformat(),  # Full datetime with time
                     "score": score_percentage,
                     "comments": comments,
                     **answers
                 }
                 
                 try:
-                    response = supabase.table("audits").insert(data).execute()
-                    st.session_state.last_submitted_data = data
-                    st.session_state.form_submitted = True
-                    st.rerun()
+                    # DEBUG: Show what we're trying to save
+                    st.write("📝 Attempting to save data...")
                     
+                    response = supabase.table("audits").insert(data).execute()
+                    
+                    if response.data:
+                        st.session_state.last_submitted_data = data
+                        st.session_state.form_submitted = True
+                        st.rerun()
+                    else:
+                        st.error("❌ No response data received from database")
+                        
                 except Exception as e:
-                    st.error(f"❌ Error submitting audit: {e}")
+                    st.error(f"❌ Error submitting audit: {str(e)}")
+                    
+                    # Show debug info
+                    with st.expander("Debug Information"):
+                        st.write("Data being sent:", data)
+                        st.write("Full error:", e)
 
 with tab2:
     st.markdown("<h2 style='text-align: center;'>View Audits</h2>", unsafe_allow_html=True)
     
     try:
+        # Fetch all audits
         response = supabase.table("audits").select("*").order("audit_date", desc=True).execute()
         
         if response.data:
             df = pd.DataFrame(response.data)
             
+            # Ensure department column exists
             if 'department' not in df.columns:
                 df['department'] = 'Not Assigned'
+            
+            # Convert audit_date to datetime for proper formatting
+            df['audit_date'] = pd.to_datetime(df['audit_date'])
+            
+            # Format date with time for display
+            df['audit_date_display'] = df['audit_date'].dt.strftime('%Y-%m-%d %H:%M:%S')
             
             # Calculate metrics
             total_audits = len(df)
@@ -529,34 +559,84 @@ with tab2:
             cols[3].metric("Pass Rate", f"{pass_rate:.1f}%")
             cols[4].metric("Departments", df['department'].nunique())
             
-            # Dataframe
-            display_columns = ['id', 'audit_date', 'department', 'team_leader', 'consultant', 'client_id', 'score']
+            # Show latest entries first
+            st.subheader(f"Latest Audits (Showing {len(df)} total)")
+            
+            # Select columns to display
+            display_columns = ['audit_date_display', 'department', 'team_leader', 'consultant', 'client_id', 'score']
+            
+            # Add question columns if they exist
             for col in ['q2', 'q10', 'comments']:
                 if col in df.columns:
                     display_columns.append(col)
             
+            # Create display dataframe
+            display_df = df[display_columns].copy()
+            
+            # Rename columns for better display
+            display_df = display_df.rename(columns={
+                'audit_date_display': 'Date & Time',
+                'department': 'Department',
+                'team_leader': 'Team Lead',
+                'consultant': 'Consultant',
+                'client_id': 'Client ID',
+                'score': 'Score',
+                'q2': 'Q2 ⚠️',
+                'q10': 'Q10 ⚠️',
+                'comments': 'Comments'
+            })
+            
+            # Display the dataframe with date and time
             st.dataframe(
-                df[display_columns],
+                display_df,
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "id": st.column_config.NumberColumn("ID", width="small"),
-                    "audit_date": "Date",
-                    "department": "Department",
-                    "team_leader": "Team Lead",
-                    "consultant": "Consultant",
-                    "client_id": "Client ID",
-                    "score": st.column_config.NumberColumn("Score", format="%.1f %%"),
+                    "Date & Time": st.column_config.DatetimeColumn(
+                        "Date & Time",
+                        format="YYYY-MM-DD HH:mm:ss",
+                        help="Date and time of audit"
+                    ),
+                    "Department": "Department",
+                    "Team Lead": "Team Lead",
+                    "Consultant": "Consultant",
+                    "Client ID": "Client ID",
+                    "Score": st.column_config.NumberColumn(
+                        "Score", 
+                        format="%.1f %%",
+                        help="Score = 0% if critical question = 'No'"
+                    ),
+                    "Q2 ⚠️": st.column_config.TextColumn(
+                        "Q2 ⚠️", 
+                        width="small",
+                        help="Critical question 2"
+                    ) if 'Q2 ⚠️' in display_df.columns else None,
+                    "Q10 ⚠️": st.column_config.TextColumn(
+                        "Q10 ⚠️", 
+                        width="small",
+                        help="Critical question 10"
+                    ) if 'Q10 ⚠️' in display_df.columns else None,
+                    "Comments": "Comments"
                 }
             )
+            
+            # Show raw data for debugging
+            with st.expander("🔍 Debug: View Raw Data", expanded=False):
+                st.write("Raw database data (first 5 rows):")
+                st.write(df[['id', 'audit_date', 'team_leader', 'consultant', 'department', 'score']].head())
+                
+                # Test database connection
+                test_response = supabase.table("audits").select("count").execute()
+                st.write(f"Total records in database: {len(df)}")
             
             # Download button
             csv = df.to_csv(index=False)
             st.download_button(
-                label="Download All Audits as CSV",
+                label="📥 Download All Audits as CSV",
                 data=csv,
-                file_name="audits.csv",
-                mime="text/csv"
+                file_name=f"audits_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
             )
             
         else:
@@ -564,6 +644,7 @@ with tab2:
             
     except Exception as e:
         st.error(f"Error fetching audits: {e}")
+        st.info("Try refreshing the page or check your database connection.")
 
 with tab3:
     st.markdown("<h2 style='text-align: center;'>📈 Analytics Dashboard</h2>", unsafe_allow_html=True)
@@ -581,13 +662,14 @@ with tab3:
             
             # Convert dates
             df['audit_date'] = pd.to_datetime(df['audit_date'])
+            df['date_display'] = df['audit_date'].dt.strftime('%Y-%m-%d %H:%M')
             df['month_name'] = df['audit_date'].dt.strftime('%B %Y')
             df['day'] = df['audit_date'].dt.date
             
             # Simple display for now
             st.subheader("📊 Summary Statistics")
             
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Total Audits", len(df))
             with col2:
@@ -595,17 +677,59 @@ with tab3:
             with col3:
                 dept_count = df['department'].nunique()
                 st.metric("Departments", dept_count)
+            with col4:
+                latest_audit = df['audit_date'].max().strftime('%Y-%m-%d %H:%M') if len(df) > 0 else "N/A"
+                st.metric("Latest Audit", latest_audit)
             
             # Department breakdown
-            st.subheader("🏢 Department Breakdown")
+            st.subheader("🏢 Department Performance")
             dept_stats = df.groupby('department').agg({
-                'score': 'mean',
+                'score': ['mean', 'count'],
                 'id': 'count'
             }).round(1).reset_index()
-            dept_stats.columns = ['Department', 'Avg Score', 'Count']
+            
+            # Flatten column names
+            dept_stats.columns = ['Department', 'Avg Score', 'Audit Count', 'Total']
+            
+            col_dept1, col_dept2 = st.columns(2)
+            
+            with col_dept1:
+                # Bar chart
+                fig = go.Figure(go.Bar(
+                    x=dept_stats['Department'],
+                    y=dept_stats['Avg Score'],
+                    text=dept_stats['Avg Score'].astype(str) + '%',
+                    textposition='auto',
+                    marker_color='cornflowerblue'
+                ))
+                
+                fig.update_layout(
+                    xaxis_title="Department",
+                    yaxis_title="Average Score (%)",
+                    height=400
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col_dept2:
+                # Table view
+                st.dataframe(
+                    dept_stats[['Department', 'Avg Score', 'Audit Count']],
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Department": "Department",
+                        "Avg Score": st.column_config.NumberColumn("Avg Score", format="%.1f %%"),
+                        "Audit Count": "Audit Count"
+                    }
+                )
+            
+            # Recent audits table
+            st.subheader("🕒 Recent Audits")
+            recent_df = df[['date_display', 'department', 'team_leader', 'consultant', 'score']].head(10).copy()
+            recent_df = recent_df.rename(columns={'date_display': 'Date & Time'})
             
             st.dataframe(
-                dept_stats,
+                recent_df,
                 use_container_width=True,
                 hide_index=True
             )
