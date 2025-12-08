@@ -90,7 +90,7 @@ with tab1:
         # Questions with special indicators for Q2 and Q10
         questions = {
             1: "Q1: Was the consultant Friendly & Professional towards the customer…i.e.Greetings, introduce yourself etc?",
-            2: "Q2: Did the consultant correctly validate the customer as per the validation process (POPI Act)?", ⚠️",
+            2: "Q2: Did the consultant correctly validate the customer as per the validation process (POPI Act)?, ⚠️",
             3: "Q3: Was the consultant Actively Listening to the customer(Understanding the reason for the call)?",
             4: "Q4: Did the consultant display Empathy?",
             5: "Q5: Were notes placed on every interaction of the query/complaint?",
