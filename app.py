@@ -89,18 +89,18 @@ with tab1:
         
         # Questions with special indicators for Q2 and Q10
         questions = {
-            1: "Q1: Professional greeting and introduction?",
-            2: "Q2: Active listening demonstrated? ⚠️",
-            3: "Q3: Accurate information provided?",
-            4: "Q4: Proper call structure followed?",
-            5: "Q5: Correct documentation?",
-            6: "Q6: Compliance with procedures?",
-            7: "Q7: Customer needs addressed?",
-            8: "Q8: Professional language used?",
-            9: "Q9: Appropriate call closure?",
-            10: "Q10: Follow-up actions specified? ⚠️",
-            11: "Q11: Quality of solution provided?",
-            12: "Q12: Overall customer experience?"
+            1: "Q1: Was the consultant Friendly & Professional towards the customer?…i.e. Greetings, introduce yourself etc?",
+            2: "Q2: Did the consultant correctly validate the customer as per the validation process? (POPI Act)?", ⚠️",
+            3: "Q3: Was the consultant Actively Listening to the customer? (Understanding the reason for the call)?",
+            4: "Q4: Did the consultant display Empathy?",
+            5: "Q5: Were notes placed on every interaction of the query/complaint?",
+            6: "Q6: Was the Hold Process followed correctly?",
+            7: "Q7: Was the call transferred to the appropriate Dept?",
+            8: "Q8: Did the consultant assist the client to navigate correctly?",
+            9: "Q9: Was the Pin/Password reset process followed?",
+            10: "Q10: Was the Branch referral correct i.e. Was it warranted or could it be resolved online?", ⚠️",
+            11: "Q11: Did the agent call back the client?",
+            12: "Q12: Was Self-Service Promoted? i.e. Self-authentication cia IVR, Karabo etc?"
         }
         
         answers = {}
