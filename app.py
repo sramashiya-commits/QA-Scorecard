@@ -59,24 +59,51 @@ def calculate_score(answers):
     
     return score_percentage, total_score, max_possible
 
+# Initialize session state for form clearing
+if 'form_submitted' not in st.session_state:
+    st.session_state.form_submitted = False
+if 'clear_form' not in st.session_state:
+    st.session_state.clear_form = False
+
 # Centered Main Title
 st.markdown("<h1 style='text-align: center;'>📊 QA Scorecard System</h1>", unsafe_allow_html=True)
 
-# Create tabs - ADDED ANALYTICS TAB
+# Create tabs
 tab1, tab2, tab3 = st.tabs(["➕ New Audit", "📋 View Audits", "📈 Analytics Dashboard"])
 
 with tab1:
     st.markdown("<h2 style='text-align: center;'>New QA Audit</h2>", unsafe_allow_html=True)
     
-    with st.form("audit_form"):
+    # If form was just submitted, show success message and "Score Another" button
+    if st.session_state.get('form_submitted', False):
+        st.success("✅ Audit submitted successfully!")
+        
+        col_success1, col_success2, col_success3 = st.columns([1, 2, 1])
+        with col_success2:
+            if st.button("🎯 Score Another Person", type="primary", use_container_width=True):
+                # Clear the form by resetting session state
+                st.session_state.form_submitted = False
+                st.session_state.clear_form = True
+                st.rerun()
+        
+        # Show the submitted audit details
+        with st.expander("📋 View Submitted Audit Details", expanded=True):
+            if 'last_submitted_data' in st.session_state:
+                st.write("**Last Submitted Audit:**")
+                st.json(st.session_state.last_submitted_data)
+    
+    # Create a fresh form instance
+    with st.form("audit_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         
         with col1:
             consultant = st.selectbox(
                 "Consultant Name *",
-                ["Golden Raphulu", "Moreen Nkosi", "Aobakwe Peter", "Karabo Ratau", "Diya Ramesar", "Daychannel Jasson"]
+                ["Aobakwe Peter", "Daychannel Jasson", "Diya Ramesar", "Golden Raphulu", "Karabo Ratau", "Moreen Nkosi",],
+                index=None,
+                placeholder="Select consultant..."
             )
-            team_leader = st.text_input("Team Leader *", value="Sipho")
+            team_leader = st.text_input("Team Leader *", value="Sipho Ramashiya")
             
         with col2:
             client_id = st.text_input("Client ID *", placeholder="CLIENT-001")
@@ -115,7 +142,8 @@ with tab1:
                     question_text,
                     ["Yes", "No", "NA"],
                     horizontal=False,
-                    key=f"q{i}"
+                    key=f"q{i}_form",
+                    index=None  # Start with no selection
                 )
                 answers[f"q{i}"] = answer
                 
@@ -163,9 +191,12 @@ with tab1:
         if answers.get("q10") == "No":
             st.error("**❌ Q10 FAIL:** Incorrect branch referral")
         
-        comments = st.text_area("Additional Comments")
+        comments = st.text_area("Additional Comments", placeholder="Enter any additional comments here...")
         
-        submitted = st.form_submit_button("Submit Audit")
+        # Submit button with primary styling
+        col_submit1, col_submit2, col_submit3 = st.columns([1, 2, 1])
+        with col_submit2:
+            submitted = st.form_submit_button("📥 Submit Audit", type="primary", use_container_width=True)
         
         if submitted:
             if not all([consultant, team_leader, client_id]):
@@ -183,35 +214,13 @@ with tab1:
                 
                 try:
                     response = supabase.table("audits").insert(data).execute()
-                    st.success("✅ Audit submitted successfully!")
                     
-                    # Show scoring details
-                    with st.expander("Scoring Details", expanded=True):
-                        if answers.get("q2") == "No" or answers.get("q10") == "No":
-                            st.error("**CRITICAL FAILURE DETECTED:**")
-                            if answers.get("q2") == "No":
-                                st.write("- Q2 (Customer Validation/POPI): 'No' → Total score = 0%")
-                            if answers.get("q10") == "No":
-                                st.write("- Q10 (Branch Referral): 'No' → Total score = 0%")
-                            st.write("**Final Score: 0%**")
-                        else:
-                            st.write("**Question Breakdown:**")
-                            for i in range(1, 13):
-                                answer = answers[f"q{i}"]
-                                if answer == "NA":
-                                    points = "N/A (excluded)"
-                                elif answer == "Yes":
-                                    points = "1 point"
-                                else:  # No
-                                    points = "0 points"
-                                
-                                # Highlight critical questions
-                                if i == 2 or i == 10:
-                                    st.write(f"**Q{i}** ⚠️: {answer} → {points}")
-                                else:
-                                    st.write(f"Q{i}: {answer} → {points}")
-                            
-                            st.write(f"\n**Total Score:** {raw_score}/{max_score} = **{score_percentage}%**")
+                    # Store the submitted data in session state
+                    st.session_state.last_submitted_data = data
+                    st.session_state.form_submitted = True
+                    
+                    # Don't show the success message here - it will show after rerun
+                    st.rerun()
                     
                 except Exception as e:
                     st.error(f"❌ Error submitting audit: {e}")
@@ -565,39 +574,5 @@ with tab3:
                 )
                 st.plotly_chart(fig7, use_container_width=True)
             
-            # Add date range filter for analytics
-            st.divider()
-            with st.expander("🔍 Filter Analytics Data", expanded=False):
-                col_filter1, col_filter2, col_filter3 = st.columns(3)
-                
-                with col_filter1:
-                    date_range = st.date_input(
-                        "Select Date Range",
-                        value=[df['audit_date'].min().date(), df['audit_date'].max().date()],
-                        max_value=datetime.now().date()
-                    )
-                
-                with col_filter2:
-                    selected_consultants = st.multiselect(
-                        "Select Consultants",
-                        options=sorted(df['consultant'].unique()),
-                        default=sorted(df['consultant'].unique())
-                    )
-                
-                with col_filter3:
-                    min_score = st.slider("Minimum Score", 0, 100, 0)
-                
-                if len(date_range) == 2:
-                    start_date, end_date = date_range
-                    filtered_df = df[
-                        (df['audit_date'].dt.date >= start_date) &
-                        (df['audit_date'].dt.date <= end_date) &
-                        (df['consultant'].isin(selected_consultants)) &
-                        (df['score'] >= min_score)
-                    ]
-                    
-                    st.info(f"Showing {len(filtered_df)} out of {len(df)} audits")
-                    
     except Exception as e:
         st.error(f"Error loading analytics: {e}")
-
