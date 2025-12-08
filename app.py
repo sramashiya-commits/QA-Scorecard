@@ -21,9 +21,8 @@ def init_connection():
 
 supabase = init_connection()
 
-# ==================== EXACT DATA STRUCTURE AS PROVIDED ====================
+# ==================== EXACT DATA STRUCTURE ====================
 
-# Team Leader to Department Mapping
 TEAM_DEPARTMENT_MAP = {
     "Sipho Ramashiya": "Digital Support",
     "Anita Maharaj": "ARQ",
@@ -37,21 +36,6 @@ TEAM_DEPARTMENT_MAP = {
     "Bradlee Naidoo": "ARQ"
 }
 
-# Team Names (for display)
-TEAM_NAMES = {
-    "Sipho Ramashiya": "Team Sipho",
-    "Anita Maharaj": "Team Anita",
-    "Palesa Maponya": "Team Palesa",
-    "Neo Thobejane": "Team Neo",
-    "Garth Masekele": "Team Garth",
-    "Sue Darrol": "Team Sue",
-    "Rethabile Nkadimeng": "Team Retha",
-    "Theo Sambinda": "Team Theo",
-    "Pacience Mashigo": "Team Pacience",
-    "Bradlee Naidoo": "Team Brads"
-}
-
-# Team Leader to Consultants Mapping (EXACT as per your list)
 TEAM_CONSULTANTS_MAP = {
     "Sipho Ramashiya": [
         "Aobakwe Peter",
@@ -178,7 +162,6 @@ TEAM_CONSULTANTS_MAP = {
     ]
 }
 
-# Department-specific scoring cards
 SCORING_CARDS = {
     "Digital Support": {
         "name": "Digital Support QA Scorecard",
@@ -290,15 +273,10 @@ SCORING_CARDS = {
     }
 }
 
-# ==================== SCORING FUNCTIONS ====================
-
 def calculate_score(answers, critical_questions):
-    """
-    Calculate score based on answers.
-    SPECIAL RULE: Total score = 0 if ANY critical question = "No"
-    Other questions: Yes=1, No=0, NA=excluded
-    """
-    # Check if any critical question is "No" - if yes, total score = 0
+    if not answers:
+        return 0, 0, 0
+    
     for q_num in critical_questions:
         if answers.get(f"q{q_num}") == "No":
             return 0, 0, 0
@@ -308,19 +286,12 @@ def calculate_score(answers, critical_questions):
     
     for i in range(1, 13):
         answer = answers.get(f"q{i}", "No")
-        
-        # Exclude NA from calculation
         if answer == "NA":
             continue
-            
-        # Count for max possible
         max_possible += 1
-        
-        # Score 1 for Yes, 0 for No
         if answer == "Yes":
             total_score += 1
     
-    # Calculate percentage
     if max_possible > 0:
         score_percentage = round((total_score / max_possible) * 100, 2)
     else:
@@ -328,13 +299,11 @@ def calculate_score(answers, critical_questions):
     
     return score_percentage, total_score, max_possible
 
-# ==================== APP LAYOUT ====================
-
 # Initialize session state
-if 'form_submitted' not in st.session_state:
-    st.session_state.form_submitted = False
 if 'selected_team_leader' not in st.session_state:
     st.session_state.selected_team_leader = None
+if 'form_submitted' not in st.session_state:
+    st.session_state.form_submitted = False
 
 # Centered Main Title
 st.markdown("<h1 style='text-align: center;'>🏢 Multi-Department QA Scorecard System</h1>", unsafe_allow_html=True)
@@ -345,25 +314,16 @@ tab1, tab2, tab3 = st.tabs(["➕ New Audit", "📋 View Audits", "📈 Analytics
 with tab1:
     st.markdown("<h2 style='text-align: center;'>New QA Audit</h2>", unsafe_allow_html=True)
     
-    # If form was just submitted, show success message and "Score Another" button
     if st.session_state.get('form_submitted', False):
         st.success("✅ Audit submitted successfully!")
         
         col_success1, col_success2, col_success3 = st.columns([1, 2, 1])
         with col_success2:
             if st.button("🎯 Score Another Person", type="primary", use_container_width=True):
-                # Clear the form by resetting session state
                 st.session_state.form_submitted = False
                 st.session_state.selected_team_leader = None
                 st.rerun()
-        
-        # Show the submitted audit details
-        with st.expander("📋 View Submitted Audit Details", expanded=False):
-            if 'last_submitted_data' in st.session_state:
-                st.write("**Last Submitted Audit:**")
-                st.json(st.session_state.last_submitted_data)
     
-    # Create a fresh form instance
     with st.form("audit_form", clear_on_submit=True):
         st.subheader("👥 Team Information")
         
@@ -380,20 +340,22 @@ with tab1:
                 key="team_leader_select"
             )
             
-            # Store selection in session state for dynamic updates
+            # Update session state when team leader changes
             if team_leader:
                 st.session_state.selected_team_leader = team_leader
-                # Show team name
-                team_name = TEAM_NAMES.get(team_leader, team_leader)
-                st.caption(f"👥 {team_name}")
+            elif team_leader is None:
+                st.session_state.selected_team_leader = None
         
         with col2:
             # Department (auto-filled based on team leader)
             if st.session_state.selected_team_leader:
                 department = TEAM_DEPARTMENT_MAP[st.session_state.selected_team_leader]
-                st.text_input("Department *", value=department, disabled=True)
+                # Use st.text to display department (not text_input)
+                st.text("Department *")
+                st.info(f"**{department}**")
             else:
-                st.text_input("Department *", value="Select team leader first", disabled=True)
+                st.text("Department *")
+                st.warning("Select team leader first")
                 department = None
         
         with col3:
@@ -402,15 +364,17 @@ with tab1:
                 consultants = TEAM_CONSULTANTS_MAP[st.session_state.selected_team_leader]
                 consultant = st.selectbox(
                     "Consultant *",
-                    sorted(consultants),  # Sort alphabetically
+                    sorted(consultants),
                     index=None,
-                    placeholder="Select consultant..."
+                    placeholder="Select consultant...",
+                    key=f"consultant_select_{st.session_state.selected_team_leader}"
                 )
             else:
                 st.selectbox(
                     "Consultant *",
                     ["Select team leader first"],
-                    disabled=True
+                    disabled=True,
+                    key="consultant_disabled"
                 )
                 consultant = None
         
@@ -421,9 +385,9 @@ with tab1:
         col4, col5 = st.columns(2)
         
         with col4:
-            client_id = st.text_input("Client ID *", placeholder="CLIENT-001")
+            client_id = st.text_input("Client ID *", placeholder="CLIENT-001", key="client_id")
         with col5:
-            audit_date = st.date_input("Audit Date *", value=datetime.now())
+            audit_date = st.date_input("Audit Date *", value=datetime.now(), key="audit_date")
         
         st.divider()
         
@@ -432,7 +396,7 @@ with tab1:
             scoring_card = SCORING_CARDS.get(department, SCORING_CARDS["Digital Support"])
             
             st.subheader(f"📋 {scoring_card['name']}")
-            st.caption(f"👥 {TEAM_NAMES.get(team_leader, team_leader)} - {department}")
+            st.info(f"**Team:** {st.session_state.selected_team_leader} | **Department:** {department}")
             
             answers = {}
             
@@ -453,26 +417,24 @@ with tab1:
                         question_text,
                         ["Yes", "No", "NA"],
                         horizontal=False,
-                        key=f"q{i}_form_{department}_{team_leader}",
-                        index=None  # Start with no selection
+                        key=f"q{i}_{department}_{st.session_state.selected_team_leader}",
+                        index=None
                     )
                     answers[f"q{i}"] = answer
                     
-                    # Show critical warning
                     if is_critical:
                         st.caption("⚠️ **CRITICAL:** 'No' = Total score = 0%")
                 
                 col_idx = (col_idx + 1) % 3
             
-            # Calculate score
+            # Calculate score immediately
             score_percentage, raw_score, max_score = calculate_score(answers, scoring_card['critical_questions'])
             
             st.divider()
-            st.warning(f"⚠️ **CRITICAL SCORING RULE:** If any critical question is 'No', the total score will be 0%")
+            st.warning("⚠️ **CRITICAL SCORING RULE:** If any critical question is 'No', the total score will be 0%")
             
             col6, col7, col8 = st.columns(3)
             with col6:
-                # Check if any critical question is "No"
                 critical_failed = any(answers.get(f"q{q}") == "No" for q in scoring_card['critical_questions'])
                 if critical_failed:
                     st.error(f"❌ Total Score: {score_percentage}%")
@@ -488,7 +450,6 @@ with tab1:
                     st.metric("Raw Score", f"{raw_score}/{max_score}")
             
             with col8:
-                # Color code based on score
                 if critical_failed:
                     st.error("❌ FAIL - Critical Error")
                 elif score_percentage >= 85:
@@ -502,29 +463,29 @@ with tab1:
             for q_num in scoring_card['critical_questions']:
                 if answers.get(f"q{q_num}") == "No":
                     st.error(f"**❌ Q{q_num} FAIL:** Critical requirement not met")
-        
         else:
-            st.info("👈 Please select a Team Leader to see the scoring card")
+            st.info("👈 **Please select a Team Leader above to see the scoring card**")
             answers = {}
             score_percentage = 0
             critical_failed = False
         
         st.divider()
         st.subheader("💬 Additional Information")
-        comments = st.text_area("Additional Comments", placeholder="Enter any additional comments here...")
+        comments = st.text_area("Additional Comments", placeholder="Enter any additional comments here...", key="comments")
         
-        # Submit button with primary styling
+        # Submit button
         col_submit1, col_submit2, col_submit3 = st.columns([1, 2, 1])
         with col_submit2:
-            submitted = st.form_submit_button("📥 Submit Audit", type="primary", use_container_width=True,
-                                            disabled=not st.session_state.selected_team_leader)
+            submitted = st.form_submit_button("📥 Submit Audit", type="primary", use_container_width=True)
         
         if submitted:
-            # Validate required fields
-            required_fields = [team_leader, consultant, client_id]
-            if not all(required_fields):
-                st.error("Please fill all required fields (*)")
-            elif not all(answers.values()):  # Check if all questions are answered
+            if not team_leader:
+                st.error("Please select a Team Leader")
+            elif not consultant:
+                st.error("Please select a Consultant")
+            elif not client_id:
+                st.error("Please enter a Client ID")
+            elif not all(answers.values()):
                 st.error("Please answer all questions")
             else:
                 department = TEAM_DEPARTMENT_MAP[team_leader]
@@ -542,18 +503,12 @@ with tab1:
                 
                 try:
                     response = supabase.table("audits").insert(data).execute()
-                    
-                    # Store the submitted data in session state
                     st.session_state.last_submitted_data = data
                     st.session_state.form_submitted = True
-                    
-                    # Rerun to show success message
                     st.rerun()
                     
                 except Exception as e:
                     st.error(f"❌ Error submitting audit: {e}")
-                    if "department" in str(e):
-                        st.info("⚠️ You need to update your database to add the 'department' column. See instructions in the sidebar.")
 
 with tab2:
     st.markdown("<h2 style='text-align: center;'>View Audits</h2>", unsafe_allow_html=True)
@@ -564,91 +519,33 @@ with tab2:
         if response.data:
             df = pd.DataFrame(response.data)
             
-            # If department column doesn't exist yet, add a placeholder
             if 'department' not in df.columns:
                 df['department'] = 'Not Assigned'
             
             # Calculate metrics
             total_audits = len(df)
             avg_score = df['score'].mean()
-            
-            # Try to calculate critical failures
             critical_failures = 0
             if all(col in df.columns for col in ['q2', 'q10']):
                 critical_failures = len(df[(df['q2'] == 'No') | (df['q10'] == 'No')])
             
             # Show metrics
-            col1, col2, col3, col4, col5 = st.columns(5)
-            with col1:
-                st.metric("Total Audits", total_audits)
-            with col2:
-                st.metric("Average Score", f"{avg_score:.1f}%")
-            with col3:
-                st.metric("Critical Failures", critical_failures)
-                st.caption("Critical questions = 'No'")
-            with col4:
-                pass_rate = ((total_audits - critical_failures) / total_audits * 100) if total_audits > 0 else 0
-                st.metric("Pass Rate", f"{pass_rate:.1f}%")
-            with col5:
-                dept_count = df['department'].nunique()
-                st.metric("Departments", dept_count)
+            cols = st.columns(5)
+            cols[0].metric("Total Audits", total_audits)
+            cols[1].metric("Average Score", f"{avg_score:.1f}%")
+            cols[2].metric("Critical Failures", critical_failures)
+            pass_rate = ((total_audits - critical_failures) / total_audits * 100) if total_audits > 0 else 0
+            cols[3].metric("Pass Rate", f"{pass_rate:.1f}%")
+            cols[4].metric("Departments", df['department'].nunique())
             
-            # Team Summary
-            st.subheader("👥 Team Summary")
-            team_summary = df.groupby(['department', 'team_leader']).agg({
-                'score': 'mean',
-                'id': 'count'
-            }).round(1).reset_index()
-            team_summary.columns = ['Department', 'Team Leader', 'Avg Score', 'Audits']
-            
-            col_sum1, col_sum2 = st.columns(2)
-            with col_sum1:
-                st.dataframe(
-                    team_summary,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Department": "Department",
-                        "Team Leader": "Team Leader",
-                        "Avg Score": st.column_config.NumberColumn("Avg Score", format="%.1f %%"),
-                        "Audits": "Audits"
-                    }
-                )
-            
-            with col_sum2:
-                # Top performing teams
-                top_teams = team_summary.sort_values('Avg Score', ascending=False).head(5)
-                st.write("**🏆 Top 5 Performing Teams**")
-                for idx, row in top_teams.iterrows():
-                    score_color = "🟢" if row['Avg Score'] >= 85 else "🟡" if row['Avg Score'] >= 70 else "🔴"
-                    st.write(f"{score_color} **{row['Team Leader']}** ({row['Department']}): {row['Avg Score']}% ({row['Audits']} audits)")
-            
-            st.divider()
-            
-            # Dataframe with critical indicators
-            def highlight_critical(row):
-                if 'q2' in row and 'q10' in row:
-                    if row['q2'] == 'No' or row['q10'] == 'No':
-                        return ['background-color: #ffcccc'] * len(row)
-                return [''] * len(row)
-            
-            # Column selection for display
+            # Dataframe
             display_columns = ['id', 'audit_date', 'department', 'team_leader', 'consultant', 'client_id', 'score']
-            
-            # Add question columns if they exist
             for col in ['q2', 'q10', 'comments']:
                 if col in df.columns:
                     display_columns.append(col)
             
-            display_df = df[display_columns].copy()
-            
-            # Apply styling
-            styled_df = display_df.style.apply(highlight_critical, axis=1)
-            
-            # Display the dataframe
-            st.subheader("All Audits")
             st.dataframe(
-                styled_df,
+                df[display_columns],
                 use_container_width=True,
                 hide_index=True,
                 column_config={
@@ -658,20 +555,7 @@ with tab2:
                     "team_leader": "Team Lead",
                     "consultant": "Consultant",
                     "client_id": "Client ID",
-                    "score": st.column_config.NumberColumn(
-                        "Score", 
-                        format="%.1f %%",
-                        help="Score = 0% if critical question = 'No'"
-                    ),
-                    "q2": st.column_config.TextColumn(
-                        "Q2 ⚠️", 
-                        width="small"
-                    ) if 'q2' in display_columns else None,
-                    "q10": st.column_config.TextColumn(
-                        "Q10 ⚠️", 
-                        width="small"
-                    ) if 'q10' in display_columns else None,
-                    "comments": "Comments"
+                    "score": st.column_config.NumberColumn("Score", format="%.1f %%"),
                 }
             )
             
@@ -694,7 +578,6 @@ with tab3:
     st.markdown("<h2 style='text-align: center;'>📈 Analytics Dashboard</h2>", unsafe_allow_html=True)
     
     try:
-        # Fetch data for analytics
         response = supabase.table("audits").select("*").order("audit_date", desc=True).execute()
         
         if not response.data:
@@ -702,256 +585,110 @@ with tab3:
         else:
             df = pd.DataFrame(response.data)
             
-            # If department column doesn't exist yet, add a placeholder
             if 'department' not in df.columns:
                 df['department'] = 'Not Assigned'
             
-            # Convert audit_date to datetime and extract date components
+            # Convert dates
             df['audit_date'] = pd.to_datetime(df['audit_date'])
-            df['year_month'] = df['audit_date'].dt.strftime('%Y-%m')
             df['month_name'] = df['audit_date'].dt.strftime('%B %Y')
-            df['week'] = df['audit_date'].dt.isocalendar().week
-            df['month'] = df['audit_date'].dt.month
             df['day'] = df['audit_date'].dt.date
-            df['year'] = df['audit_date'].dt.year
             
-            # ========== FILTERS SECTION ==========
+            # Filters
             st.subheader("🔍 Filter Analytics Data")
             
-            # Create columns for filters
-            col_filter1, col_filter2, col_filter3, col_filter4 = st.columns(4)
+            col_filter1, col_filter2, col_filter3 = st.columns(3)
             
             with col_filter1:
-                # Department filter
                 all_departments = sorted(df['department'].unique())
                 selected_departments = st.multiselect(
                     "Select Department(s)",
                     options=all_departments,
-                    default=all_departments,
-                    help="Filter by department"
+                    default=all_departments
                 )
             
             with col_filter2:
-                # Team Leader filter
                 all_team_leaders = sorted(df['team_leader'].unique())
                 selected_team_leaders = st.multiselect(
                     "Select Team Leader(s)",
                     options=all_team_leaders,
-                    default=all_team_leaders,
-                    help="Filter by team leader"
+                    default=all_team_leaders
                 )
             
             with col_filter3:
-                # Consultant filter
-                all_consultants = sorted(df['consultant'].unique())
-                selected_consultants = st.multiselect(
-                    "Select Consultant(s)",
-                    options=all_consultants,
-                    default=all_consultants,
-                    help="Filter by consultant"
-                )
-            
-            with col_filter4:
-                # Date range filter
-                min_date = df['audit_date'].min().date()
-                max_date = df['audit_date'].max().date()
-                
-                date_range = st.date_input(
-                    "Date Range",
-                    value=[min_date, max_date],
-                    min_value=min_date,
-                    max_value=max_date
+                all_months = sorted(df['month_name'].unique(), reverse=True)
+                selected_months = st.multiselect(
+                    "Select Month(s)",
+                    options=all_months,
+                    default=all_months[:3] if len(all_months) >= 3 else all_months
                 )
             
             # Apply filters
             filtered_df = df.copy()
             
-            # Apply department filter
             if selected_departments:
                 filtered_df = filtered_df[filtered_df['department'].isin(selected_departments)]
-            
-            # Apply team leader filter
             if selected_team_leaders:
                 filtered_df = filtered_df[filtered_df['team_leader'].isin(selected_team_leaders)]
+            if selected_months:
+                filtered_df = filtered_df[filtered_df['month_name'].isin(selected_months)]
             
-            # Apply consultant filter
-            if selected_consultants:
-                filtered_df = filtered_df[filtered_df['consultant'].isin(selected_consultants)]
-            
-            # Apply date range filter
-            if len(date_range) == 2:
-                start_date, end_date = date_range
-                filtered_df = filtered_df[
-                    (filtered_df['audit_date'].dt.date >= start_date) &
-                    (filtered_df['audit_date'].dt.date <= end_date)
-                ]
-            
-            # Show filter summary
             st.info(f"📊 **Showing {len(filtered_df)} out of {len(df)} audits**")
             
             if len(filtered_df) == 0:
-                st.warning("No data matches your filters. Try adjusting filter criteria.")
+                st.warning("No data matches your filters.")
                 st.stop()
             
-            # ========== ANALYTICS DASHBOARD ==========
-            st.divider()
-            
-            # Calculate filtered metrics
+            # Metrics
             total_audits_filtered = len(filtered_df)
             avg_score_filtered = filtered_df['score'].mean()
-            
-            # Calculate critical failures
             critical_failures_filtered = 0
             if all(col in filtered_df.columns for col in ['q2', 'q10']):
                 critical_failures_filtered = len(filtered_df[(filtered_df['q2'] == 'No') | (filtered_df['q10'] == 'No')])
-            
             pass_rate_filtered = ((total_audits_filtered - critical_failures_filtered) / total_audits_filtered * 100) if total_audits_filtered > 0 else 0
             
-            # Top row - Key Metrics
+            # Display metrics
             st.subheader("📊 Key Performance Indicators")
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-            
-            with kpi1:
-                st.metric("Total Audits", total_audits_filtered)
-            
-            with kpi2:
-                st.metric("Average Score", f"{avg_score_filtered:.1f}%")
-            
-            with kpi3:
-                st.metric("Pass Rate", f"{pass_rate_filtered:.1f}%")
-            
-            with kpi4:
-                st.metric("Critical Failures", critical_failures_filtered, delta_color="inverse")
-            
-            st.divider()
+            kpi_cols = st.columns(4)
+            kpi_cols[0].metric("Total Audits", total_audits_filtered)
+            kpi_cols[1].metric("Average Score", f"{avg_score_filtered:.1f}%")
+            kpi_cols[2].metric("Pass Rate", f"{pass_rate_filtered:.1f}%")
+            kpi_cols[3].metric("Critical Failures", critical_failures_filtered, delta_color="inverse")
             
             # Department Performance
             st.subheader("🏢 Department Performance")
-            
             if len(filtered_df) > 0:
-                dept_performance = filtered_df.groupby('department').agg({
-                    'score': ['mean', 'count'],
+                dept_scores = filtered_df.groupby('department').agg({
+                    'score': 'mean',
                     'id': 'count'
                 }).round(1).reset_index()
-                
-                # Flatten column names
-                dept_performance.columns = ['Department', 'Avg_Score', 'Audit_Count', 'Total']
+                dept_scores.columns = ['Department', 'Avg Score', 'Audit Count']
                 
                 col_dept1, col_dept2 = st.columns(2)
                 
                 with col_dept1:
-                    # Bar chart
                     fig1 = go.Figure(go.Bar(
-                        x=dept_performance['Department'],
-                        y=dept_performance['Avg_Score'],
-                        text=dept_performance['Avg_Score'].astype(str) + '%',
-                        textposition='auto',
+                        x=dept_scores['Avg Score'],
+                        y=dept_scores['Department'],
+                        orientation='h',
+                        text=dept_scores['Avg Score'].astype(str) + '%',
+                        textposition='outside',
                         marker_color='cornflowerblue'
                     ))
-                    
-                    fig1.update_layout(
-                        xaxis_title="Department",
-                        yaxis_title="Average Score (%)",
-                        height=400
-                    )
+                    fig1.update_layout(height=400, xaxis_title="Average Score (%)", yaxis_title="Department")
                     st.plotly_chart(fig1, use_container_width=True)
                 
                 with col_dept2:
-                    # Table view
                     st.dataframe(
-                        dept_performance,
+                        dept_scores,
                         use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "Department": "Department",
-                            "Avg_Score": st.column_config.NumberColumn("Avg Score", format="%.1f %%"),
-                            "Audit_Count": "Audit Count"
-                        }
+                        hide_index=True
                     )
             
+            # Export
             st.divider()
-            
-            # Team Leader Performance
-            st.subheader("👥 Team Leader Performance")
-            
-            if len(filtered_df) > 0:
-                team_performance = filtered_df.groupby(['department', 'team_leader']).agg({
-                    'score': 'mean',
-                    'id': 'count'
-                }).round(1).reset_index()
-                team_performance.columns = ['Department', 'Team Leader', 'Avg Score', 'Audits']
-                
-                # Top 10 team leaders
-                top_teams = team_performance.sort_values('Avg Score', ascending=False).head(10)
-                
-                fig2 = go.Figure(go.Bar(
-                    x=top_teams['Team Leader'],
-                    y=top_teams['Avg Score'],
-                    text=top_teams['Avg Score'].astype(str) + '%',
-                    textposition='auto',
-                    marker_color='lightseagreen'
-                ))
-                
-                fig2.update_layout(
-                    xaxis_title="Team Leader",
-                    yaxis_title="Average Score (%)",
-                    height=400
-                )
-                st.plotly_chart(fig2, use_container_width=True)
-            
-            st.divider()
-            
-            # Consultant Leaderboard
-            st.subheader("🌟 Consultant Leaderboard")
-            
-            if len(filtered_df) > 0:
-                consultant_performance = filtered_df.groupby(['team_leader', 'consultant']).agg({
-                    'score': 'mean',
-                    'id': 'count'
-                }).round(1).reset_index()
-                consultant_performance.columns = ['Team Leader', 'Consultant', 'Avg Score', 'Audits']
-                
-                # Top 15 consultants
-                top_consultants = consultant_performance.sort_values('Avg Score', ascending=False).head(15)
-                bottom_consultants = consultant_performance.sort_values('Avg Score', ascending=True).head(15)
-                
-                col_cons1, col_cons2 = st.columns(2)
-                
-                with col_cons1:
-                    st.write("**🏆 Top 15 Consultants**")
-                    st.dataframe(
-                        top_consultants,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "Team Leader": "Team Leader",
-                            "Consultant": "Consultant",
-                            "Avg Score": st.column_config.NumberColumn("Avg Score", format="%.1f %%"),
-                            "Audits": "Audits"
-                        }
-                    )
-                
-                with col_cons2:
-                    st.write("**📉 Bottom 15 Consultants**")
-                    st.dataframe(
-                        bottom_consultants,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "Team Leader": "Team Leader",
-                            "Consultant": "Consultant",
-                            "Avg Score": st.column_config.NumberColumn("Avg Score", format="%.1f %%"),
-                            "Audits": "Audits"
-                        }
-                    )
-            
-            # Export Filtered Data
-            st.divider()
-            st.subheader("💾 Export Filtered Data")
-            
             csv_filtered = filtered_df.to_csv(index=False)
             st.download_button(
-                label="📥 Download Filtered Data (CSV)",
+                label="📥 Download Filtered Data",
                 data=csv_filtered,
                 file_name=f"filtered_audits_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
@@ -960,37 +697,3 @@ with tab3:
             
     except Exception as e:
         st.error(f"Error loading analytics: {e}")
-
-# ==================== SIDEBAR INSTRUCTIONS ====================
-
-with st.sidebar:
-    with st.expander("⚠️ Database Update Required", expanded=False):
-        st.write("""
-        **To use the new department feature, run this SQL in Supabase SQL Editor:**
-        
-        ```sql
-        -- Add department column
-        ALTER TABLE audits 
-        ADD COLUMN IF NOT EXISTS department TEXT;
-        
-        -- Update existing records to 'Digital Support' (or appropriate department)
-        UPDATE audits 
-        SET department = 'Digital Support' 
-        WHERE department IS NULL;
-        ```
-        
-        **Without this update:**  
-        - New audits will fail to save  
-        - Department field will show as 'Not Assigned'  
-        """)
-    
-    with st.expander("👥 Team Structure", expanded=False):
-        st.write("**Team Leader → Department Mapping:**")
-        for tl, dept in TEAM_DEPARTMENT_MAP.items():
-            team_name = TEAM_NAMES.get(tl, tl)
-            st.write(f"- **{tl}** ({team_name}) → {dept}")
-    
-    with st.expander("📊 Departments", expanded=False):
-        st.write("**Available Scoring Cards:**")
-        for dept in sorted(SCORING_CARDS.keys()):
-            st.write(f"- **{dept}**: {SCORING_CARDS[dept]['name']}")
