@@ -601,5 +601,3 @@ with tab3:
     except Exception as e:
         st.error(f"Error loading analytics: {e}")
 
-# Add requirements.txt entry for plotly
-st.sidebar.info("ℹ️ Don't forget to add `plotly>=5.18.0` to your requirements.txt")
