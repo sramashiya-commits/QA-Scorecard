@@ -1,7 +1,10 @@
 import streamlit as st
 from supabase import create_client
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # Page config
 st.set_page_config(
@@ -56,14 +59,14 @@ def calculate_score(answers):
     
     return score_percentage, total_score, max_possible
 
-# Title
+# Centered Main Title
 st.markdown("<h1 style='text-align: center;'>📊 QA Scorecard System</h1>", unsafe_allow_html=True)
 
-# Navigation
-tab1, tab2 = st.tabs(["➕ New Audit", "📋 View Audits"])
+# Create tabs - ADDED ANALYTICS TAB
+tab1, tab2, tab3 = st.tabs(["➕ New Audit", "📋 View Audits", "📈 Analytics Dashboard"])
 
 with tab1:
-    st.header("New QA Audit")
+    st.markdown("<h2 style='text-align: center;'>New QA Audit</h2>", unsafe_allow_html=True)
     
     with st.form("audit_form"):
         col1, col2 = st.columns(2)
@@ -71,7 +74,7 @@ with tab1:
         with col1:
             consultant = st.selectbox(
                 "Consultant Name *",
-                ["Golden", "Moreen", "John", "Sarah", "Mike", "David", "Lisa"]
+                ["Golden Raphulu", "Moreen Nkosi", "Aobakwe Peter", "Karabo Ratau", "Diya Ramesar", "Daychannel Jasson"]
             )
             team_leader = st.text_input("Team Leader *", value="Sipho")
             
@@ -214,7 +217,7 @@ with tab1:
                     st.error(f"❌ Error submitting audit: {e}")
 
 with tab2:
-    st.header("Previous Audits")
+    st.markdown("<h2 style='text-align: center;'>View Audits</h2>", unsafe_allow_html=True)
     
     try:
         response = supabase.table("audits").select("*").order("audit_date", desc=True).execute()
@@ -285,42 +288,6 @@ with tab2:
                 }
             )
             
-            # Filter options
-            with st.expander("Filter Audits", expanded=False):
-                col_f1, col_f2, col_f3 = st.columns(3)
-                with col_f1:
-                    filter_consultant = st.selectbox(
-                        "Filter by Consultant:",
-                        ["All"] + sorted(df['consultant'].unique().tolist())
-                    )
-                with col_f2:
-                    filter_critical = st.selectbox(
-                        "Filter by Critical Status:",
-                        ["All", "Critical Failures", "Non-Critical"]
-                    )
-                with col_f3:
-                    filter_score = st.slider(
-                        "Minimum Score:",
-                        min_value=0, max_value=100, value=0
-                    )
-                
-                # Apply filters
-                filtered_df = df.copy()
-                
-                if filter_consultant != "All":
-                    filtered_df = filtered_df[filtered_df['consultant'] == filter_consultant]
-                
-                if filter_critical == "Critical Failures":
-                    filtered_df = filtered_df[(filtered_df['q2'] == 'No') | (filtered_df['q10'] == 'No')]
-                elif filter_critical == "Non-Critical":
-                    filtered_df = filtered_df[(filtered_df['q2'] != 'No') & (filtered_df['q10'] != 'No')]
-                
-                filtered_df = filtered_df[filtered_df['score'] >= filter_score]
-                
-                st.write(f"**{len(filtered_df)} audits match your filters**")
-                if len(filtered_df) > 0:
-                    st.dataframe(filtered_df[['consultant', 'audit_date', 'score', 'q2', 'q10']])
-            
             # Download button
             csv = df.to_csv(index=False)
             st.download_button(
@@ -330,35 +297,309 @@ with tab2:
                 mime="text/csv"
             )
             
-            # Critical failures analysis
-            if critical_failures > 0:
-                st.subheader("Critical Failures Analysis")
-                critical_df = df[(df['q2'] == 'No') | (df['q10'] == 'No')]
-                
-                col_c1, col_c2 = st.columns(2)
-                with col_c1:
-                    st.write("**Breakdown by Consultant:**")
-                    consultant_counts = critical_df['consultant'].value_counts()
-                    st.dataframe(consultant_counts)
-                
-                with col_c2:
-                    st.write("**Failure Reasons:**")
-                    q2_failures = len(critical_df[critical_df['q2'] == 'No'])
-                    q10_failures = len(critical_df[critical_df['q10'] == 'No'])
-                    both_failures = len(critical_df[(critical_df['q2'] == 'No') & (critical_df['q10'] == 'No')])
-                    
-                    failure_data = pd.DataFrame({
-                        'Failure Type': ['Q2 Only', 'Q10 Only', 'Both Q2 & Q10'],
-                        'Count': [
-                            q2_failures - both_failures,
-                            q10_failures - both_failures,
-                            both_failures
-                        ]
-                    })
-                    st.dataframe(failure_data, hide_index=True)
-            
         else:
             st.info("No audits found. Submit your first audit above!")
             
     except Exception as e:
         st.error(f"Error fetching audits: {e}")
+
+with tab3:
+    st.markdown("<h2 style='text-align: center;'>📈 Analytics Dashboard</h2>", unsafe_allow_html=True)
+    
+    try:
+        # Fetch data for analytics
+        response = supabase.table("audits").select("*").order("audit_date", desc=True).execute()
+        
+        if not response.data:
+            st.info("No audit data available for analytics. Submit some audits first!")
+        else:
+            df = pd.DataFrame(response.data)
+            
+            # Convert audit_date to datetime
+            df['audit_date'] = pd.to_datetime(df['audit_date'])
+            df['week'] = df['audit_date'].dt.isocalendar().week
+            df['month'] = df['audit_date'].dt.month
+            df['day'] = df['audit_date'].dt.date
+            
+            # Calculate additional metrics
+            total_audits = len(df)
+            avg_score = df['score'].mean()
+            critical_failures = len(df[(df['q2'] == 'No') | (df['q10'] == 'No')])
+            pass_rate = ((total_audits - critical_failures) / total_audits * 100) if total_audits > 0 else 0
+            
+            # Top row - Key Metrics
+            st.subheader("📊 Key Performance Indicators")
+            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+            
+            with kpi1:
+                st.metric("Total Audits", total_audits)
+            with kpi2:
+                st.metric("Average Score", f"{avg_score:.1f}%", 
+                         delta=f"{(avg_score - 70):.1f}%" if avg_score > 70 else None)
+            with kpi3:
+                st.metric("Pass Rate", f"{pass_rate:.1f}%")
+            with kpi4:
+                st.metric("Critical Failures", critical_failures, 
+                         delta_color="inverse")
+            
+            st.divider()
+            
+            # Row 1 - Performance Trends
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("📈 Performance Trend Over Time")
+                
+                # Daily average scores
+                daily_scores = df.groupby('day')['score'].mean().reset_index()
+                daily_scores['7_day_avg'] = daily_scores['score'].rolling(window=7, min_periods=1).mean()
+                
+                fig1 = go.Figure()
+                fig1.add_trace(go.Scatter(x=daily_scores['day'], y=daily_scores['score'],
+                                         mode='lines+markers', name='Daily Score',
+                                         line=dict(color='royalblue', width=2)))
+                fig1.add_trace(go.Scatter(x=daily_scores['day'], y=daily_scores['7_day_avg'],
+                                         mode='lines', name='7-Day Average',
+                                         line=dict(color='firebrick', width=3, dash='dash')))
+                
+                fig1.update_layout(
+                    xaxis_title="Date",
+                    yaxis_title="Average Score (%)",
+                    hovermode='x unified',
+                    height=400
+                )
+                st.plotly_chart(fig1, use_container_width=True)
+            
+            with col2:
+                st.subheader("👥 Consultant Performance")
+                
+                consultant_scores = df.groupby('consultant').agg({
+                    'score': 'mean',
+                    'id': 'count'
+                }).round(1).reset_index()
+                consultant_scores = consultant_scores.rename(columns={'id': 'audit_count', 'score': 'avg_score'})
+                
+                # Sort by average score
+                consultant_scores = consultant_scores.sort_values('avg_score', ascending=True)
+                
+                fig2 = go.Figure(go.Bar(
+                    x=consultant_scores['avg_score'],
+                    y=consultant_scores['consultant'],
+                    orientation='h',
+                    text=consultant_scores['avg_score'].astype(str) + '%',
+                    textposition='outside',
+                    marker_color='lightseagreen'
+                ))
+                
+                fig2.update_layout(
+                    xaxis_title="Average Score (%)",
+                    yaxis_title="Consultant",
+                    height=400,
+                    showlegend=False
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+            
+            st.divider()
+            
+            # Row 2 - Question Analysis
+            st.subheader("❓ Question Performance Analysis")
+            
+            # Calculate pass rates for each question
+            question_stats = []
+            for q in range(1, 13):
+                q_col = f'q{q}'
+                total_responses = len(df[df[q_col] != 'NA'])
+                if total_responses > 0:
+                    yes_count = len(df[df[q_col] == 'Yes'])
+                    pass_rate_q = (yes_count / total_responses) * 100
+                else:
+                    pass_rate_q = 0
+                
+                question_stats.append({
+                    'Question': f'Q{q}',
+                    'Pass Rate (%)': round(pass_rate_q, 1),
+                    'Critical': '⚠️' if q in [2, 10] else ''
+                })
+            
+            question_df = pd.DataFrame(question_stats)
+            
+            col3, col4 = st.columns(2)
+            
+            with col3:
+                fig3 = go.Figure(go.Bar(
+                    x=question_df['Question'],
+                    y=question_df['Pass Rate (%)'],
+                    text=question_df['Pass Rate (%)'].astype(str) + '%',
+                    textposition='auto',
+                    marker_color=['#ff6b6b' if q in ['Q2', 'Q10'] else '#4ecdc4' for q in question_df['Question']]
+                ))
+                
+                fig3.update_layout(
+                    xaxis_title="Question",
+                    yaxis_title="Pass Rate (%)",
+                    height=400,
+                    xaxis={'categoryorder': 'total descending'}
+                )
+                st.plotly_chart(fig3, use_container_width=True)
+            
+            with col4:
+                st.subheader("Question Details")
+                st.dataframe(
+                    question_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Question": "Question",
+                        "Pass Rate (%)": st.column_config.NumberColumn("Pass Rate", format="%.1f %%"),
+                        "Critical": st.column_config.TextColumn("Critical", width="small")
+                    }
+                )
+            
+            st.divider()
+            
+            # Row 3 - Critical Failures Analysis
+            st.subheader("⚠️ Critical Failures Analysis")
+            
+            # Calculate failure reasons
+            q2_failures = len(df[df['q2'] == 'No'])
+            q10_failures = len(df[df['q10'] == 'No'])
+            both_failures = len(df[(df['q2'] == 'No') & (df['q10'] == 'No')])
+            
+            failure_data = pd.DataFrame({
+                'Failure Type': ['Q2 Only (Validation)', 'Q10 Only (Referral)', 'Both Q2 & Q10'],
+                'Count': [
+                    q2_failures - both_failures,
+                    q10_failures - both_failures,
+                    both_failures
+                ]
+            })
+            
+            col5, col6 = st.columns(2)
+            
+            with col5:
+                fig4 = go.Figure(go.Pie(
+                    labels=failure_data['Failure Type'],
+                    values=failure_data['Count'],
+                    hole=0.4,
+                    marker_colors=['#ff9999', '#66b3ff', '#99ff99']
+                ))
+                
+                fig4.update_layout(
+                    height=400,
+                    showlegend=True,
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+                )
+                st.plotly_chart(fig4, use_container_width=True)
+            
+            with col6:
+                # Critical failures by consultant
+                critical_df = df[(df['q2'] == 'No') | (df['q10'] == 'No')]
+                if not critical_df.empty:
+                    critical_by_consultant = critical_df['consultant'].value_counts().reset_index()
+                    critical_by_consultant.columns = ['Consultant', 'Critical Failures']
+                    
+                    fig5 = go.Figure(go.Bar(
+                        x=critical_by_consultant['Consultant'],
+                        y=critical_by_consultant['Critical Failures'],
+                        marker_color='indianred'
+                    ))
+                    
+                    fig5.update_layout(
+                        xaxis_title="Consultant",
+                        yaxis_title="Critical Failures",
+                        height=400
+                    )
+                    st.plotly_chart(fig5, use_container_width=True)
+                else:
+                    st.info("No critical failures to display")
+            
+            st.divider()
+            
+            # Row 4 - Score Distribution
+            st.subheader("📊 Score Distribution")
+            
+            col7, col8 = st.columns(2)
+            
+            with col7:
+                # Histogram of scores
+                fig6 = px.histogram(df, x='score', nbins=20,
+                                   title="Distribution of Audit Scores",
+                                   labels={'score': 'Score (%)', 'count': 'Number of Audits'},
+                                   color_discrete_sequence=['lightseagreen'])
+                
+                fig6.update_layout(
+                    height=400,
+                    bargap=0.1,
+                    xaxis_range=[0, 100]
+                )
+                st.plotly_chart(fig6, use_container_width=True)
+            
+            with col8:
+                # Score categories
+                def get_score_category(score):
+                    if score == 0:
+                        return 'Critical Failure'
+                    elif score >= 85:
+                        return 'Excellent (85-100%)'
+                    elif score >= 70:
+                        return 'Good (70-84%)'
+                    else:
+                        return 'Needs Improvement (<70%)'
+                
+                df['score_category'] = df['score'].apply(get_score_category)
+                category_counts = df['score_category'].value_counts().reset_index()
+                category_counts.columns = ['Category', 'Count']
+                
+                fig7 = go.Figure(go.Bar(
+                    x=category_counts['Category'],
+                    y=category_counts['Count'],
+                    text=category_counts['Count'],
+                    textposition='auto',
+                    marker_color=['#ff6b6b', '#4ecdc4', '#ffe66d', '#95e1d3']
+                ))
+                
+                fig7.update_layout(
+                    xaxis_title="Score Category",
+                    yaxis_title="Number of Audits",
+                    height=400
+                )
+                st.plotly_chart(fig7, use_container_width=True)
+            
+            # Add date range filter for analytics
+            st.divider()
+            with st.expander("🔍 Filter Analytics Data", expanded=False):
+                col_filter1, col_filter2, col_filter3 = st.columns(3)
+                
+                with col_filter1:
+                    date_range = st.date_input(
+                        "Select Date Range",
+                        value=[df['audit_date'].min().date(), df['audit_date'].max().date()],
+                        max_value=datetime.now().date()
+                    )
+                
+                with col_filter2:
+                    selected_consultants = st.multiselect(
+                        "Select Consultants",
+                        options=sorted(df['consultant'].unique()),
+                        default=sorted(df['consultant'].unique())
+                    )
+                
+                with col_filter3:
+                    min_score = st.slider("Minimum Score", 0, 100, 0)
+                
+                if len(date_range) == 2:
+                    start_date, end_date = date_range
+                    filtered_df = df[
+                        (df['audit_date'].dt.date >= start_date) &
+                        (df['audit_date'].dt.date <= end_date) &
+                        (df['consultant'].isin(selected_consultants)) &
+                        (df['score'] >= min_score)
+                    ]
+                    
+                    st.info(f"Showing {len(filtered_df)} out of {len(df)} audits")
+                    
+    except Exception as e:
+        st.error(f"Error loading analytics: {e}")
+
+# Add requirements.txt entry for plotly
+st.sidebar.info("ℹ️ Don't forget to add `plotly>=5.18.0` to your requirements.txt")
