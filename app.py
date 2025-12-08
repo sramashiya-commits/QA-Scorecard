@@ -98,7 +98,7 @@ with tab1:
             7: "Q7: Was the call transferred to the appropriate Dept?",
             8: "Q8: Did the consultant assist the client to navigate correctly?",
             9: "Q9: Was the Pin/Password reset process followed?",
-            10: "Q10: Was the Branch referral correct i.e. Was it warranted or could it be resolved online?", ⚠️",
+            10: "Q10: Was the Branch referral correct i.e. Was it warranted or could it be resolved online?, ⚠️",
             11: "Q11: Did the agent call back the client?",
             12: "Q12: Was Self-Service Promoted? i.e. Self-authentication cia IVR, Karabo etc?"
         }
