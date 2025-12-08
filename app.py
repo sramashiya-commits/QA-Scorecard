@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 
 # Page config
 st.set_page_config(
-    page_title="QA Scorecard System",
+    page_title="Digital Support(QA Scorecard System)",
     page_icon="📊",
     layout="wide"
 )
