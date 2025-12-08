@@ -66,7 +66,7 @@ if 'clear_form' not in st.session_state:
     st.session_state.clear_form = False
 
 # Centered Main Title
-st.markdown("<h1 style='text-align: center;'>📊 QA Scorecard System</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>📊 Digital Support(QA Scorecard System)</h1>", unsafe_allow_html=True)
 
 # Create tabs
 tab1, tab2, tab3 = st.tabs(["➕ New Audit", "📋 View Audits", "📈 Analytics Dashboard"])
