@@ -93,7 +93,7 @@ TEAM_CONSULTANTS_MAP = {
         "Vincent Bhengu", "Zwanga Nndwammbi", 
         "Claudia Malatji", "Qondile Zulu"
     ]
-    
+}
     
     # ... add other team leader consultants similarly
 }
@@ -183,7 +183,7 @@ SCORING_CARDS = {
             10: "Q10: Was feedback from confirmations actioned?", 
             11: "Q11: Were all compliance requirements met?", 
             12: "Q12: Was the confirmation process efficient?" }, 
-        "critical_questions": [] # No critical questions specified },
+        "critical_questions": [] # No critical questions specified 
      },
     "Dialler": { "name": "Dialler Department QA Scorecard", "questions": { 
             1: "Q1: Regulatory statement (African is a financial services provider…) ⚠️", 
@@ -198,7 +198,7 @@ SCORING_CARDS = {
            10: "Q10: Were customer objections handled professionally?", 
            11: "Q11: Was the customer experience positive?", 
            12: "Q12: Were all compliance requirements met during calls?" }, 
-                "critical_questions": [1, 2] # Q1 and Q2 are critical }
+        "critical_questions": [1, 2] # Q1 and Q2 are critical 
     # Add other departments similarly...
 }
 
