@@ -151,10 +151,10 @@ SCORING_CARDS = {
             11: "Was the payslip and bank statement information clear?",
             12: "Were any red flags properly escalated?"
         },
-    
         "critical_questions": [3, 4, 7]
     },
-    "Assessment": { "name": "Assessment Department QA Scorecard", 
+    "Assessment": { 
+        "name": "Assessment Department QA Scorecard", 
         "questions": { 
             1: "Q1: Was the assessment scope clearly defined?", 
             2: "Q2: Were assessment criteria applied correctly?", 
@@ -167,10 +167,13 @@ SCORING_CARDS = {
             9: "Q9: Was the assessment report professional?", 
             10: "Q10: Were follow-up assessments scheduled if needed?", 
             11: "Q11: Was the assessment methodology appropriate?", 
-            12: "Q12: Were all stakeholders properly informed?" }, 
-        "critical_questions": [] # No critical questions specified
+            12: "Q12: Were all stakeholders properly informed?" 
+        }, 
+        "critical_questions": []
     },
-    "Confirmations": { "name": "Confirmations Department QA Scorecard", "questions": { 
+    "Confirmations": { 
+        "name": "Confirmations Department QA Scorecard", 
+        "questions": { 
             1: "Q1: Did the Agent validate clients ID and employee numbers to HR?", 
             2: "Q2: Did the Agent verify client's employment status i.e. perm or temp?", 
             3: "Q3: Did the Agent verify client company name?", 
@@ -182,10 +185,13 @@ SCORING_CARDS = {
             9: "Q9: Were follow-ups documented?", 
             10: "Q10: Was feedback from confirmations actioned?", 
             11: "Q11: Were all compliance requirements met?", 
-            12: "Q12: Was the confirmation process efficient?" }, 
-        "critical_questions": [] # No critical questions specified 
-     },
-    "Dialler": { "name": "Dialler Department QA Scorecard", "questions": { 
+            12: "Q12: Was the confirmation process efficient?" 
+        }, 
+        "critical_questions": []
+    },
+    "Dialler": { 
+        "name": "Dialler Department QA Scorecard", 
+        "questions": { 
             1: "Q1: Regulatory statement (African is a financial services provider…) ⚠️", 
             2: "Q2: ID & V (authenticate the customer correctly) ⚠️", 
             3: "Q3: Did the consultant speak clear, audible and polite tone/accent without interruptions?", 
@@ -197,8 +203,10 @@ SCORING_CARDS = {
             9: "Q9: Was call disposition accurately recorded?", 
            10: "Q10: Were customer objections handled professionally?", 
            11: "Q11: Was the customer experience positive?", 
-           12: "Q12: Were all compliance requirements met during calls?" }, 
-        "critical_questions": [1, 2] # Q1 and Q2 are critical 
+           12: "Q12: Were all compliance requirements met during calls?" 
+        }, 
+        "critical_questions": [1, 2]
+    }
     # Add other departments similarly...
 }
 
