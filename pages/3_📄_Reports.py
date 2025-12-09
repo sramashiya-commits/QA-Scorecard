@@ -1,40 +1,60 @@
 import streamlit as st
-from supabase import create_client, Client
 import pandas as pd
+from supabase import create_client, Client
 
-# Initialize Supabase
+# -------------------------
+# Supabase Connection
+# -------------------------
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# -------------------------
+# Function to fetch report
+# -------------------------
 def fetch_report(table_name, filter_col=None, filter_val=None):
+    query = supabase.table(table_name).select("*")
+    if filter_col and filter_val:
+        query = query.eq(filter_col, filter_val)
     try:
-        query = supabase.table(table_name).select("*")
-        if filter_col and filter_val:
-            query = query.eq(filter_col, filter_val)
         res = query.execute()
-        
-        if res.data is None:
-            st.warning(f"No data found in table '{table_name}' with {filter_col} = '{filter_val}'")
-            return pd.DataFrame()
-        
-        df = pd.DataFrame(res.data)
-        return df
+        if res.data:
+            df = pd.DataFrame(res.data)
+            return df
+        else:
+            return pd.DataFrame()  # empty dataframe
     except Exception as e:
         st.error(f"Error fetching report: {e}")
         return pd.DataFrame()
 
-# --- In your Reports page ---
-st.header("Reports")
-if st.button("Generate Weekly Report"):
-    df_weekly = fetch_report("audits", filter_col="report_type", filter_val="weekly")
-    if not df_weekly.empty:
-        # Export as Excel
+# -------------------------
+# Streamlit UI
+# -------------------------
+st.title("📄 QA Reports")
+
+report_type = st.radio("Select Report Type:", ["Weekly", "Monthly"])
+
+if st.button(f"Generate {report_type} Report"):
+    # Adjust column name here if your table uses a different one
+    filter_column = "report_type"  # change to the actual column in your table
+    filter_value = report_type.lower()  # 'weekly' or 'monthly'
+
+    df_report = fetch_report("audits", filter_col=filter_column, filter_val=filter_value)
+
+    if not df_report.empty:
+        # Show dataframe
+        st.dataframe(df_report)
+
+        # Convert to Excel
+        excel_file = f"{report_type}_report.xlsx"
+        df_report.to_excel(excel_file, index=False)
+
+        # Provide download link
         st.download_button(
-            label="Download Weekly Report",
-            data=df_weekly.to_excel(index=False, engine='openpyxl'),
-            file_name="weekly_report.xlsx",
+            label=f"Download {report_type} Report as Excel",
+            data=open(excel_file, "rb").read(),
+            file_name=excel_file,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
-        st.info("No weekly report data available.")
+        st.warning(f"No {report_type} report found.")
