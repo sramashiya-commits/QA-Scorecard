@@ -96,7 +96,6 @@ TEAM_CONSULTANTS_MAP = {
 }
     
     # ... add other team leader consultants similarly
-}
 
 SCORING_CARDS = {
     "Digital Support": {
