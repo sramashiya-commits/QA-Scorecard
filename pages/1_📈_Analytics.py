@@ -255,7 +255,7 @@ try:
         df['department'] = 'Not Assigned'
     
     # Convert audit_date to datetime
-    df['audit_date'] = pd.to_datetime(df['audit_date'])
+    df['audit_date'] = pd.to_datetime(df['audit_date'], format='ISO8601')
     df['date'] = df['audit_date'].dt.date
     df['week'] = df['audit_date'].dt.isocalendar().week
     df['month'] = df['audit_date'].dt.strftime('%Y-%m')
