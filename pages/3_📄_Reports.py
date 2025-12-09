@@ -62,7 +62,7 @@ try:
     report_col = report_col_candidates[0] if report_col_candidates else None
     available_report_types = df_sample[report_col].unique().tolist() if report_col else ["weekly", "monthly"]
 except:
-    available_report_types = ["weekly", "monthly"]
+    available_report_types = ["Weekly", "Monthly"]
 
 report_type = st.selectbox("Select Report Type:", available_report_types)
 
